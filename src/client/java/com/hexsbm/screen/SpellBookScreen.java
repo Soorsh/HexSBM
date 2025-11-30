@@ -119,9 +119,9 @@ public class SpellBookScreen extends Screen {
             boolean isHovered = isPointInCircularSegment(mouseX, mouseY, cx, cy,
                     OUTER_SEGMENT_START, OUTER_SEGMENT_END, startAngle, endAngle);
 
-            int color = isCurrent ? 0xFF44AA44 :
-                       isHovered ? 0xFF555555 :
-                                   0xFF444444;
+            int color = isCurrent ? 0xCC44FF44:
+                        isHovered ? 0x90FFFFFF:
+                                    0x75CCCCCC;
 
             fillCircularSegment(context, cx, cy, OUTER_SEGMENT_START, OUTER_SEGMENT_END,
                     startAngle, endAngle, color);
@@ -164,9 +164,9 @@ public class SpellBookScreen extends Screen {
             boolean isHovered = isPointInCircularSegment(mouseX, mouseY, cx, cy,
                     INNER_SEGMENT_START, INNER_SEGMENT_END, startAngle, endAngle);
 
-            int color = isCurrentGroup ? 0xFF3388FF :
-                       isHovered ? 0xFF666666 :
-                                   0xFF333333;
+            int color = isCurrentGroup ? 0xCC4488FF:
+                        isHovered      ? 0x90FFFFFF:
+                                         0x75AAAAFF;
 
             fillCircularSegment(context, cx, cy, INNER_SEGMENT_START, INNER_SEGMENT_END,
                     startAngle, endAngle, color);
