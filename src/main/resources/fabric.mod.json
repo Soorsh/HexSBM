@@ -1,0 +1,25 @@
+{
+	"schemaVersion": 1,
+	"id": "hexsbm",
+	"version": "${version}",
+	"name": "HexSBM",
+	"description": "Quick-access Spell Book Menu for Hex Casting — inspired by Samsthenerd. Client-side only.",
+	"category": "Tools",
+	"authors": ["Soorsh"],
+	"contact": {
+		"sources": "https://github.com/Soorsh/HexSBM"
+	},
+	"license": "MIT",
+	"icon": "assets/hexsbm/icon.png",
+	"entrypoints": {
+		"main": ["com.hexsbm.HexSBM"],
+		"client": ["com.hexsbm.HexSBMClient"]
+	},
+	"depends": {
+		"fabricloader": ">=0.16.10",
+		"minecraft": "~1.20.1",
+		"java": ">=17",
+		"fabric-api": "*",
+		"hexcasting": "*"
+	}
+}
