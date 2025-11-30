@@ -1,4 +1,4 @@
 {
-    "key.hexsbm.spellbook_menu": "Меню книги заклинаний",
-    "category.hexsbm.binds": "Бинды Hex Spellbook Menu"
+  "key.hexsbm.spellbook_menu": "Открыть книгу заклинаний",
+  "category.hexsbm.binds": "HexSBM"
 }

@@ -7,7 +7,6 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.registry.Registries;
-import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
@@ -30,15 +29,13 @@ public class KeyBindManager {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!keyBinding.wasPressed()) return;
+            if (client.player == null) return;
 
-            PlayerEntity player = client.player;
-            if (player == null) return;
+            ItemStack main = client.player.getMainHandStack();
+            ItemStack off = client.player.getOffHandStack();
 
-            ItemStack mainHand = player.getMainHandStack();
-            ItemStack offHand = player.getOffHandStack();
-
-            boolean hasSpellbook = (!mainHand.isEmpty() && Registries.ITEM.getId(mainHand.getItem()).equals(SPELLBOOK_ID))
-                                 || (!offHand.isEmpty() && Registries.ITEM.getId(offHand.getItem()).equals(SPELLBOOK_ID));
+            boolean hasSpellbook = (!main.isEmpty() && Registries.ITEM.getId(main.getItem()).equals(SPELLBOOK_ID))
+                                 || (!off.isEmpty() && Registries.ITEM.getId(off.getItem()).equals(SPELLBOOK_ID));
 
             if (hasSpellbook) {
                 client.setScreen(new SpellBookScreen());

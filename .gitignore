@@ -39,5 +39,6 @@ replay_*.log
 *.hprof
 *.jfr
 
-# остальное
-libs/
+# libs
+/libs/*.jar
+!/libs/README.md

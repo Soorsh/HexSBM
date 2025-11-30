@@ -3,6 +3,7 @@ package com.hexsbm.screen;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.item.TooltipContext;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.item.ItemStack;
@@ -10,8 +11,15 @@ import net.minecraft.registry.Registries;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
+import java.util.Collections;
 import java.util.List;
 
+/**
+ * Круговое меню для выбора страницы в Hexcasting Spellbook.
+ * Использует двухуровневую радиальную навигацию:
+ * - 8 центральных кнопок переключают группы (по 8 страниц),
+ * - 8 внешних кнопок отображают текущую группу (всего 64 страницы).
+ */
 public class SpellBookScreen extends Screen {
     private static final Identifier SPELLBOOK_ID = new Identifier("hexcasting", "spellbook");
 
@@ -19,22 +27,18 @@ public class SpellBookScreen extends Screen {
     private net.minecraft.util.Hand activeHand = null;
     private boolean selectionConfirmed = false;
 
-    // === УПРАВЛЕНИЕ ГРУППАМИ ===
-    private int centralGroup = 0; // текущая группа (0–7)
+    private int centralGroup = 0;
     private static final int GROUP_SIZE = 8;
     private static final int TOTAL_PAGES = 64;
 
-    // === ВИЗУАЛЬНЫЕ ПАРАМЕТРЫ ===
     private static final int BUTTON_RADIUS = 16;
-    private static final int INNER_RADIUS = 40;   // радиус центральных кнопок
-    private static final int OUTER_RADIUS = 100;  // радиус внешних кнопок
+    private static final int INNER_RADIUS = 40;
+    private static final int OUTER_RADIUS = 100;
 
-    // === КОНСТРУКТОР ===
     public SpellBookScreen() {
         super(Text.empty());
     }
 
-    // === ИНИЦИАЛИЗАЦИЯ ===
     @Override
     public void init() {
         super.init();
@@ -44,25 +48,14 @@ public class SpellBookScreen extends Screen {
             return;
         }
 
-        var player = client.player;
-        var main = player.getMainHandStack();
-        var off = player.getOffHandStack();
-
-        ItemStack currentBook = ItemStack.EMPTY;
-        net.minecraft.util.Hand currentHand = null;
-
-        if (!main.isEmpty() && Registries.ITEM.getId(main.getItem()).equals(SPELLBOOK_ID)) {
-            currentBook = main;
-            currentHand = net.minecraft.util.Hand.MAIN_HAND;
-        } else if (!off.isEmpty() && Registries.ITEM.getId(off.getItem()).equals(SPELLBOOK_ID)) {
-            currentBook = off;
-            currentHand = net.minecraft.util.Hand.OFF_HAND;
-        }
-
+        ItemStack currentBook = findSpellbook();
         if (currentBook.isEmpty()) {
             close();
             return;
         }
+
+        ClientPlayerEntity player = client.player;
+        net.minecraft.util.Hand currentHand = determineHandForBook(currentBook, player);
 
         NbtCompound nbt = currentBook.getNbt();
         this.originalPageIdx = (nbt != null && nbt.contains("page_idx", NbtElement.INT_TYPE))
@@ -71,19 +64,16 @@ public class SpellBookScreen extends Screen {
         this.activeHand = currentHand;
         this.selectionConfirmed = false;
 
-        // >>> ДОБАВЛЕНО: установка начальной группы один раз при открытии <<<
         if (this.originalPageIdx != -1) {
             this.centralGroup = Math.max(0, Math.min(7, (this.originalPageIdx - 1) / GROUP_SIZE));
         }
     }
 
-    // === ПАУЗА ИГРЫ ===
     @Override
     public boolean shouldPause() {
         return false;
     }
 
-    // === ОСНОВНОЙ РЕНДЕР ===
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         if (client == null || client.player == null) {
@@ -91,35 +81,24 @@ public class SpellBookScreen extends Screen {
             return;
         }
 
-        var player = client.player;
-        var main = player.getMainHandStack();
-        var off = player.getOffHandStack();
-        ItemStack currentBook = ItemStack.EMPTY;
-
-        if (!main.isEmpty() && Registries.ITEM.getId(main.getItem()).equals(SPELLBOOK_ID)) {
-            currentBook = main;
-        } else if (!off.isEmpty() && Registries.ITEM.getId(off.getItem()).equals(SPELLBOOK_ID)) {
-            currentBook = off;
-        }
-
+        ItemStack currentBook = findSpellbook();
         int currentPageIdx = 1;
-        NbtCompound nbt = currentBook.getNbt();
-        if (nbt != null && nbt.contains("page_idx", NbtElement.INT_TYPE)) {
-            currentPageIdx = nbt.getInt("page_idx");
-        }
 
-        // ВАЖНО: centralGroup БОЛЬШЕ НЕ СБРАСЫВАЕТСЯ ЗДЕСЬ!
-        // Он устанавливается ОДИН РАЗ в init(), и меняется только при клике.
+        if (!currentBook.isEmpty()) {
+            NbtCompound nbt = currentBook.getNbt();
+            if (nbt != null && nbt.contains("page_idx", NbtElement.INT_TYPE)) {
+                currentPageIdx = nbt.getInt("page_idx");
+            }
+        }
 
         renderRadialUI(context, mouseX, mouseY, currentBook, currentPageIdx);
     }
 
-    // === РЕНДЕР КРУГОВОГО ИНТЕРФЕЙСА ===
     private void renderRadialUI(DrawContext context, int mouseX, int mouseY, ItemStack currentBook, int currentPageIdx) {
         int cx = this.width / 2;
         int cy = this.height / 2;
 
-        // --- ВНЕШНИЕ КНОПКИ (выбор страницы) ---
+        // Внешние кнопки — выбор страницы внутри группы
         for (int i = 0; i < 8; i++) {
             int pageIndex = centralGroup * GROUP_SIZE + i + 1;
             if (pageIndex > TOTAL_PAGES) continue;
@@ -140,7 +119,6 @@ public class SpellBookScreen extends Screen {
             int tw = textRenderer.getWidth(label);
             context.drawText(textRenderer, label, x - tw / 2, y - 4, 0xFFFFFF, false);
 
-            // Тултип при наведении
             if (isHovered) {
                 String customName = getCustomPageName(currentBook, pageIndex);
                 List<Text> patterns = getPatternTooltipLines(currentBook, pageIndex);
@@ -159,7 +137,7 @@ public class SpellBookScreen extends Screen {
             }
         }
 
-        // --- ЦЕНТРАЛЬНЫЕ КНОПКИ (выбор группы) ---
+        // Центральные кнопки — выбор группы
         for (int i = 0; i < 8; i++) {
             double angle = Math.toRadians(360.0 / 8 * i - 90);
             int x = (int)(cx + INNER_RADIUS * Math.cos(angle));
@@ -179,7 +157,6 @@ public class SpellBookScreen extends Screen {
         }
     }
 
-    // === ОБРАБОТКА КЛИКОВ ===
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button != 0 || client == null || client.player == null || activeHand == null) {
@@ -190,7 +167,7 @@ public class SpellBookScreen extends Screen {
         int cx = this.width / 2;
         int cy = this.height / 2;
 
-        // Проверка клика по ЦЕНТРАЛЬНЫМ (группы)
+        // Клик по центральным кнопкам (группы)
         for (int i = 0; i < 8; i++) {
             double angle = Math.toRadians(360.0 / 8 * i - 90);
             int x = (int)(cx + INNER_RADIUS * Math.cos(angle));
@@ -201,7 +178,7 @@ public class SpellBookScreen extends Screen {
             }
         }
 
-        // Проверка клика по ВНЕШНИМ (страницы)
+        // Клик по внешним кнопкам (страницы)
         for (int i = 0; i < 8; i++) {
             int pageIndex = centralGroup * GROUP_SIZE + i + 1;
             if (pageIndex > TOTAL_PAGES) continue;
@@ -217,12 +194,10 @@ public class SpellBookScreen extends Screen {
             }
         }
 
-        // Клик вне UI — закрыть
         close();
         return true;
     }
 
-    // === ЗАКРЫТИЕ ===
     @Override
     public void close() {
         if (!selectionConfirmed) {
@@ -234,7 +209,7 @@ public class SpellBookScreen extends Screen {
     }
 
     private void restoreOriginalPage() {
-        if (originalPageIdx == -1 || activeHand == null || client == null || client.player == null) {
+        if (client == null || client.player == null || activeHand == null || originalPageIdx == -1) {
             return;
         }
 
@@ -248,7 +223,6 @@ public class SpellBookScreen extends Screen {
         }
     }
 
-    // === УПРАВЛЕНИЕ КЛАВИАТУРОЙ ===
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == GLFW.GLFW_KEY_V) {
@@ -258,7 +232,32 @@ public class SpellBookScreen extends Screen {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
-    // === УТИЛИТЫ РЕНДЕРА ===
+    // === ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ===
+
+    private ItemStack findSpellbook() {
+        if (client == null || client.player == null) {
+            return ItemStack.EMPTY;
+        }
+        ClientPlayerEntity player = client.player;
+        ItemStack main = player.getMainHandStack();
+        ItemStack off = player.getOffHandStack();
+
+        if (!main.isEmpty() && Registries.ITEM.getId(main.getItem()).equals(SPELLBOOK_ID)) {
+            return main;
+        }
+        if (!off.isEmpty() && Registries.ITEM.getId(off.getItem()).equals(SPELLBOOK_ID)) {
+            return off;
+        }
+        return ItemStack.EMPTY;
+    }
+
+    private net.minecraft.util.Hand determineHandForBook(ItemStack book, ClientPlayerEntity player) {
+        if (!player.getMainHandStack().isEmpty() && Registries.ITEM.getId(player.getMainHandStack().getItem()).equals(SPELLBOOK_ID)) {
+            return net.minecraft.util.Hand.MAIN_HAND;
+        }
+        return net.minecraft.util.Hand.OFF_HAND;
+    }
+
     private boolean isPointInCircle(int px, int py, int cx, int cy, int radius) {
         return (px - cx) * (px - cx) + (py - cy) * (py - cy) <= radius * radius;
     }
@@ -279,7 +278,6 @@ public class SpellBookScreen extends Screen {
         return String.valueOf(page);
     }
 
-    // === РАБОТА С ДАННЫМИ СТРАНИЦ ===
     private String getCustomPageName(ItemStack book, int page) {
         NbtCompound nbt = book.getNbt();
         if (nbt == null || !nbt.contains("page_names", NbtElement.COMPOUND_TYPE)) {
@@ -305,14 +303,14 @@ public class SpellBookScreen extends Screen {
     private List<Text> getPatternTooltipLines(ItemStack book, int page) {
         NbtCompound nbt = book.getNbt();
         if (nbt == null || !nbt.contains("pages", NbtElement.COMPOUND_TYPE)) {
-            return java.util.Collections.emptyList();
+            return Collections.emptyList();
         }
 
         NbtCompound pages = nbt.getCompound("pages");
         String pageKey = String.valueOf(page);
 
         if (!pages.contains(pageKey, NbtElement.COMPOUND_TYPE)) {
-            return java.util.Collections.emptyList();
+            return Collections.emptyList();
         }
 
         ItemStack fakeBook = book.copy();
@@ -320,7 +318,7 @@ public class SpellBookScreen extends Screen {
         List<Text> fullTooltip = fakeBook.getTooltip(client.player, TooltipContext.Default.BASIC);
 
         if (fullTooltip.size() <= 1) {
-            return java.util.Collections.emptyList();
+            return Collections.emptyList();
         }
 
         return fullTooltip.subList(1, fullTooltip.size());
