@@ -4,21 +4,26 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.item.TooltipContext;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
+import org.joml.Matrix4f;
 import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import java.util.Collections;
 import java.util.List;
+import net.minecraft.client.render.*;
 
 /**
  * Круговое меню для выбора страницы в Hexcasting Spellbook.
  * Использует двухуровневую радиальную навигацию:
- * - 8 центральных кнопок переключают группы (по 8 страниц),
- * - 8 внешних кнопок отображают текущую группу (всего 64 страницы).
+ * - 8 центральных секторов переключают группы (по 8 страниц),
+ * - 8 внешних секторов отображают текущую группу (всего 64 страницы).
  */
 public class SpellBookScreen extends Screen {
     private static final Identifier SPELLBOOK_ID = new Identifier("hexcasting", "spellbook");
@@ -31,9 +36,11 @@ public class SpellBookScreen extends Screen {
     private static final int GROUP_SIZE = 8;
     private static final int TOTAL_PAGES = 64;
 
-    private static final int BUTTON_RADIUS = 16;
-    private static final int INNER_RADIUS = 40;
-    private static final int OUTER_RADIUS = 100;
+    // Радиусы для секторов
+    private static final int INNER_SEGMENT_START = 30;
+    private static final int INNER_SEGMENT_END   = 60;
+    private static final int OUTER_SEGMENT_START = 70;
+    private static final int OUTER_SEGMENT_END   = 110;
 
     public SpellBookScreen() {
         super(Text.empty());
@@ -98,27 +105,36 @@ public class SpellBookScreen extends Screen {
         int cx = this.width / 2;
         int cy = this.height / 2;
 
-        // Внешние кнопки — выбор страницы внутри группы
+        // Внешние секторы — страницы внутри текущей группы
         for (int i = 0; i < 8; i++) {
             int pageIndex = centralGroup * GROUP_SIZE + i + 1;
             if (pageIndex > TOTAL_PAGES) continue;
 
-            double angle = Math.toRadians(360.0 / 8 * i - 90);
-            int x = (int)(cx + OUTER_RADIUS * Math.cos(angle));
-            int y = (int)(cy + OUTER_RADIUS * Math.sin(angle));
+            double sectorWidth = 2 * Math.PI / 8;
+            double midAngle = -Math.PI / 2 + sectorWidth * i;
+            double startAngle = midAngle - sectorWidth / 2;
+            double endAngle = midAngle + sectorWidth / 2;
 
             boolean isCurrent = (pageIndex == currentPageIdx);
-            boolean isHovered = isPointInCircle(mouseX, mouseY, x, y, BUTTON_RADIUS);
+            boolean isHovered = isPointInCircularSegment(mouseX, mouseY, cx, cy,
+                    OUTER_SEGMENT_START, OUTER_SEGMENT_END, startAngle, endAngle);
 
             int color = isCurrent ? 0xFF44AA44 :
                        isHovered ? 0xFF555555 :
                                    0xFF444444;
-            fillCircle(context, x, y, BUTTON_RADIUS, color);
+
+            fillCircularSegment(context, cx, cy, OUTER_SEGMENT_START, OUTER_SEGMENT_END,
+                    startAngle, endAngle, color);
+
+            // Текст по центру сектора
+            int textX = (int)(cx + (OUTER_SEGMENT_START + OUTER_SEGMENT_END) / 2.0 * Math.cos(midAngle));
+            int textY = (int)(cy + (OUTER_SEGMENT_START + OUTER_SEGMENT_END) / 2.0 * Math.sin(midAngle));
 
             String label = getPageLabel(currentBook, pageIndex);
             int tw = textRenderer.getWidth(label);
-            context.drawText(textRenderer, label, x - tw / 2, y - 4, 0xFFFFFF, false);
+            context.drawText(textRenderer, label, textX - tw / 2, textY - 4, 0xFFFFFF, false);
 
+            // Тултип при наведении
             if (isHovered) {
                 String customName = getCustomPageName(currentBook, pageIndex);
                 List<Text> patterns = getPatternTooltipLines(currentBook, pageIndex);
@@ -137,23 +153,31 @@ public class SpellBookScreen extends Screen {
             }
         }
 
-        // Центральные кнопки — выбор группы
+        // Внутренние секторы — выбор группы
         for (int i = 0; i < 8; i++) {
-            double angle = Math.toRadians(360.0 / 8 * i - 90);
-            int x = (int)(cx + INNER_RADIUS * Math.cos(angle));
-            int y = (int)(cy + INNER_RADIUS * Math.sin(angle));
+            double sectorWidth = 2 * Math.PI / 8;
+            double midAngle = -Math.PI / 2 + sectorWidth * i;
+            double startAngle = midAngle - sectorWidth / 2;
+            double endAngle = midAngle + sectorWidth / 2;
 
             boolean isCurrentGroup = (i == centralGroup);
-            boolean isHovered = isPointInCircle(mouseX, mouseY, x, y, BUTTON_RADIUS - 2);
+            boolean isHovered = isPointInCircularSegment(mouseX, mouseY, cx, cy,
+                    INNER_SEGMENT_START, INNER_SEGMENT_END, startAngle, endAngle);
 
             int color = isCurrentGroup ? 0xFF3388FF :
                        isHovered ? 0xFF666666 :
                                    0xFF333333;
-            fillCircle(context, x, y, BUTTON_RADIUS - 2, color);
+
+            fillCircularSegment(context, cx, cy, INNER_SEGMENT_START, INNER_SEGMENT_END,
+                    startAngle, endAngle, color);
+
+            // Текст по центру сектора
+            int textX = (int)(cx + (INNER_SEGMENT_START + INNER_SEGMENT_END) / 2.0 * Math.cos(midAngle));
+            int textY = (int)(cy + (INNER_SEGMENT_START + INNER_SEGMENT_END) / 2.0 * Math.sin(midAngle));
 
             String label = String.valueOf(i + 1);
             int tw = textRenderer.getWidth(label);
-            context.drawText(textRenderer, label, x - tw / 2, y - 4, 0xFFFFFF, false);
+            context.drawText(textRenderer, label, textX - tw / 2, textY - 4, 0xFFFFFF, false);
         }
     }
 
@@ -166,27 +190,31 @@ public class SpellBookScreen extends Screen {
 
         int cx = this.width / 2;
         int cy = this.height / 2;
+        int mx = (int) mouseX;
+        int my = (int) mouseY;
 
-        // Клик по центральным кнопкам (группы)
+        // Клик по внутренним секторам (группы)
         for (int i = 0; i < 8; i++) {
-            double angle = Math.toRadians(360.0 / 8 * i - 90);
-            int x = (int)(cx + INNER_RADIUS * Math.cos(angle));
-            int y = (int)(cy + INNER_RADIUS * Math.sin(angle));
-            if (isPointInCircle((int)mouseX, (int)mouseY, x, y, BUTTON_RADIUS - 2)) {
+            double sectorWidth = 2 * Math.PI / 8;
+            double midAngle = -Math.PI / 2 + sectorWidth * i;
+            double startAngle = midAngle - sectorWidth / 2;
+            double endAngle = midAngle + sectorWidth / 2;
+            if (isPointInCircularSegment(mx, my, cx, cy, INNER_SEGMENT_START, INNER_SEGMENT_END, startAngle, endAngle)) {
                 this.centralGroup = i;
                 return true;
             }
         }
 
-        // Клик по внешним кнопкам (страницы)
+        // Клик по внешним секторам (страницы)
         for (int i = 0; i < 8; i++) {
             int pageIndex = centralGroup * GROUP_SIZE + i + 1;
             if (pageIndex > TOTAL_PAGES) continue;
 
-            double angle = Math.toRadians(360.0 / 8 * i - 90);
-            int x = (int)(cx + OUTER_RADIUS * Math.cos(angle));
-            int y = (int)(cy + OUTER_RADIUS * Math.sin(angle));
-            if (isPointInCircle((int)mouseX, (int)mouseY, x, y, BUTTON_RADIUS)) {
+            double sectorWidth = 2 * Math.PI / 8;
+            double midAngle = -Math.PI / 2 + sectorWidth * i;
+            double startAngle = midAngle - sectorWidth / 2;
+            double endAngle = midAngle + sectorWidth / 2;
+            if (isPointInCircularSegment(mx, my, cx, cy, OUTER_SEGMENT_START, OUTER_SEGMENT_END, startAngle, endAngle)) {
                 selectionConfirmed = true;
                 com.hexsbm.HexSBMClient.sendChangeSpellbookPage(activeHand, pageIndex);
                 close();
@@ -258,16 +286,64 @@ public class SpellBookScreen extends Screen {
         return net.minecraft.util.Hand.OFF_HAND;
     }
 
-    private boolean isPointInCircle(int px, int py, int cx, int cy, int radius) {
-        return (px - cx) * (px - cx) + (py - cy) * (py - cy) <= radius * radius;
+    private boolean isPointInCircularSegment(int px, int py, int cx, int cy,
+                                           int innerRadius, int outerRadius,
+                                           double startAngle, double endAngle) {
+        double dx = px - cx;
+        double dy = py - cy;
+        double distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < innerRadius || distance > outerRadius) return false;
+
+        double angle = Math.atan2(dy, dx);
+        // Нормализуем все углы в [0, 2π)
+        if (angle < 0) angle += 2 * Math.PI;
+        double normStart = startAngle < 0 ? startAngle + 2 * Math.PI : startAngle;
+        double normEnd = endAngle < 0 ? endAngle + 2 * Math.PI : endAngle;
+
+        if (normStart < normEnd) {
+            return angle >= normStart && angle <= normEnd;
+        } else {
+            // Сектор пересекает 0° (например, 350° → 10°)
+            return angle >= normStart || angle <= normEnd;
+        }
     }
 
-    private void fillCircle(DrawContext context, int cx, int cy, int r, int color) {
-        context.fill(cx - r, cy - r, cx + r, cy + r, color);
-        context.drawHorizontalLine(cx - r, cx + r, cy - r, 0xFFFFFFFF);
-        context.drawHorizontalLine(cx - r, cx + r, cy + r - 1, 0xFFFFFFFF);
-        context.drawVerticalLine(cx - r, cy - r, cy + r, 0xFFFFFFFF);
-        context.drawVerticalLine(cx + r - 1, cy - r, cy + r, 0xFFFFFFFF);
+    private void fillCircularSegment(DrawContext context, int cx, int cy, int innerRadius, int outerRadius,
+                                double startAngle, double endAngle, int color) {
+        MatrixStack matrices = context.getMatrices();
+        Matrix4f matrix = matrices.peek().getPositionMatrix();
+
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder bufferBuilder = tessellator.getBuffer();
+
+        float a = (float)(color >> 24 & 255) / 255.0F;
+        float r = (float)(color >> 16 & 255) / 255.0F;
+        float g = (float)(color >> 8 & 255) / 255.0F;
+        float b = (float)(color & 255) / 255.0F;
+
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
+        int segments = Math.max(4, (int) ((endAngle - startAngle) / (Math.PI / 30)));
+
+        bufferBuilder.begin(VertexFormat.DrawMode.TRIANGLE_STRIP, VertexFormats.POSITION_COLOR);
+
+        for (int i = 0; i <= segments; i++) {
+            double angle = MathHelper.lerp((double) i / segments, startAngle, endAngle);
+            float cos = (float) Math.cos(angle);
+            float sin = (float) Math.sin(angle);
+
+            bufferBuilder.vertex(matrix, cx + outerRadius * cos, cy + outerRadius * sin, 0)
+                        .color(r, g, b, a)
+                        .next();
+            bufferBuilder.vertex(matrix, cx + innerRadius * cos, cy + innerRadius * sin, 0)
+                        .color(r, g, b, a)
+                        .next();
+        }
+
+        tessellator.draw();
+        RenderSystem.disableBlend();
     }
 
     private String getPageLabel(ItemStack book, int page) {
