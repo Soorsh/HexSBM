@@ -19,16 +19,22 @@ public class SpellBookScreen extends Screen {
     private net.minecraft.util.Hand activeHand = null;
     private boolean selectionConfirmed = false;
 
-    private static final int BUTTON_WIDTH = 30;
-    private static final int BUTTON_HEIGHT = 20;
-    private static final int COLUMNS = 8;
-    private static final int START_X = 50;
-    private static final int START_Y = 50;
+    // === УПРАВЛЕНИЕ ГРУППАМИ ===
+    private int centralGroup = 0; // текущая группа (0–7)
+    private static final int GROUP_SIZE = 8;
+    private static final int TOTAL_PAGES = 64;
 
+    // === ВИЗУАЛЬНЫЕ ПАРАМЕТРЫ ===
+    private static final int BUTTON_RADIUS = 16;
+    private static final int INNER_RADIUS = 40;   // радиус центральных кнопок
+    private static final int OUTER_RADIUS = 100;  // радиус внешних кнопок
+
+    // === КОНСТРУКТОР ===
     public SpellBookScreen() {
         super(Text.empty());
     }
 
+    // === ИНИЦИАЛИЗАЦИЯ ===
     @Override
     public void init() {
         super.init();
@@ -64,13 +70,20 @@ public class SpellBookScreen extends Screen {
             : 1;
         this.activeHand = currentHand;
         this.selectionConfirmed = false;
+
+        // >>> ДОБАВЛЕНО: установка начальной группы один раз при открытии <<<
+        if (this.originalPageIdx != -1) {
+            this.centralGroup = Math.max(0, Math.min(7, (this.originalPageIdx - 1) / GROUP_SIZE));
+        }
     }
 
+    // === ПАУЗА ИГРЫ ===
     @Override
     public boolean shouldPause() {
         return false;
     }
 
+    // === ОСНОВНОЙ РЕНДЕР ===
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         if (client == null || client.player == null) {
@@ -89,74 +102,84 @@ public class SpellBookScreen extends Screen {
             currentBook = off;
         }
 
-        if (currentBook.isEmpty()) {
-            renderButtons(context, mouseX, mouseY, 1);
-            return;
-        }
-
         int currentPageIdx = 1;
         NbtCompound nbt = currentBook.getNbt();
         if (nbt != null && nbt.contains("page_idx", NbtElement.INT_TYPE)) {
             currentPageIdx = nbt.getInt("page_idx");
         }
 
-        int hoveredIndex = getButtonAt(mouseX, mouseY);
-        if (hoveredIndex != -1) {
-            int targetPage = hoveredIndex + 1;
+        // ВАЖНО: centralGroup БОЛЬШЕ НЕ СБРАСЫВАЕТСЯ ЗДЕСЬ!
+        // Он устанавливается ОДИН РАЗ в init(), и меняется только при клике.
 
-            // Получаем кастомное имя страницы
-            String customName = getCustomPageName(currentBook, targetPage);
-
-            // Получаем паттерны для этой страницы
-            List<Text> patternsText = getPatternTooltipLines(currentBook, targetPage);
-
-            List<Text> finalTooltip = new java.util.ArrayList<>();
-
-            if (customName != null && !customName.isEmpty()) {
-                finalTooltip.add(Text.literal(customName));
-            } else if (!patternsText.isEmpty()) {
-                // Если имени нет, но есть паттерны — можно показать что-то вроде "Страница 5"
-                finalTooltip.add(Text.literal("Страница " + targetPage));
-            }
-            // Если имени нет и паттернов нет — ничего не добавляем (пустой тултип)
-
-            finalTooltip.addAll(patternsText);
-
-            if (!finalTooltip.isEmpty()) {
-                context.drawTooltip(textRenderer, finalTooltip, mouseX, mouseY);
-            }
-        }
-
-        renderButtons(context, mouseX, mouseY, currentPageIdx);
+        renderRadialUI(context, mouseX, mouseY, currentBook, currentPageIdx);
     }
 
-    private void renderButtons(DrawContext context, int mouseX, int mouseY, int currentPageIdx) {
-        for (int i = 0; i < 64; i++) {
-            int row = i / COLUMNS;
-            int col = i % COLUMNS;
-            int x = START_X + col * (BUTTON_WIDTH + 2);
-            int y = START_Y + row * (BUTTON_HEIGHT + 2);
+    // === РЕНДЕР КРУГОВОГО ИНТЕРФЕЙСА ===
+    private void renderRadialUI(DrawContext context, int mouseX, int mouseY, ItemStack currentBook, int currentPageIdx) {
+        int cx = this.width / 2;
+        int cy = this.height / 2;
 
-            boolean isCurrent = (i + 1 == currentPageIdx);
-            boolean isHovered = (mouseX >= x && mouseX < x + BUTTON_WIDTH && mouseY >= y && mouseY < y + BUTTON_HEIGHT);
+        // --- ВНЕШНИЕ КНОПКИ (выбор страницы) ---
+        for (int i = 0; i < 8; i++) {
+            int pageIndex = centralGroup * GROUP_SIZE + i + 1;
+            if (pageIndex > TOTAL_PAGES) continue;
+
+            double angle = Math.toRadians(360.0 / 8 * i - 90);
+            int x = (int)(cx + OUTER_RADIUS * Math.cos(angle));
+            int y = (int)(cy + OUTER_RADIUS * Math.sin(angle));
+
+            boolean isCurrent = (pageIndex == currentPageIdx);
+            boolean isHovered = isPointInCircle(mouseX, mouseY, x, y, BUTTON_RADIUS);
 
             int color = isCurrent ? 0xFF44AA44 :
                        isHovered ? 0xFF555555 :
                                    0xFF444444;
+            fillCircle(context, x, y, BUTTON_RADIUS, color);
 
-            context.fill(x, y, x + BUTTON_WIDTH, y + BUTTON_HEIGHT, color);
-            context.drawHorizontalLine(x, x + BUTTON_WIDTH, y, 0xFFFFFFFF);
-            context.drawHorizontalLine(x, x + BUTTON_WIDTH, y + BUTTON_HEIGHT - 1, 0xFFFFFFFF);
-            context.drawVerticalLine(x, y, y + BUTTON_HEIGHT, 0xFFFFFFFF);
-            context.drawVerticalLine(x + BUTTON_WIDTH - 1, y, y + BUTTON_HEIGHT, 0xFFFFFFFF);
+            String label = getPageLabel(currentBook, pageIndex);
+            int tw = textRenderer.getWidth(label);
+            context.drawText(textRenderer, label, x - tw / 2, y - 4, 0xFFFFFF, false);
+
+            // Тултип при наведении
+            if (isHovered) {
+                String customName = getCustomPageName(currentBook, pageIndex);
+                List<Text> patterns = getPatternTooltipLines(currentBook, pageIndex);
+                List<Text> tooltip = new java.util.ArrayList<>();
+
+                if (customName != null && !customName.isEmpty()) {
+                    tooltip.add(Text.literal(customName));
+                } else {
+                    tooltip.add(Text.literal("Страница " + pageIndex));
+                }
+                tooltip.addAll(patterns);
+
+                if (!tooltip.isEmpty()) {
+                    context.drawTooltip(textRenderer, tooltip, mouseX, mouseY);
+                }
+            }
+        }
+
+        // --- ЦЕНТРАЛЬНЫЕ КНОПКИ (выбор группы) ---
+        for (int i = 0; i < 8; i++) {
+            double angle = Math.toRadians(360.0 / 8 * i - 90);
+            int x = (int)(cx + INNER_RADIUS * Math.cos(angle));
+            int y = (int)(cy + INNER_RADIUS * Math.sin(angle));
+
+            boolean isCurrentGroup = (i == centralGroup);
+            boolean isHovered = isPointInCircle(mouseX, mouseY, x, y, BUTTON_RADIUS - 2);
+
+            int color = isCurrentGroup ? 0xFF3388FF :
+                       isHovered ? 0xFF666666 :
+                                   0xFF333333;
+            fillCircle(context, x, y, BUTTON_RADIUS - 2, color);
 
             String label = String.valueOf(i + 1);
-            int textX = x + (BUTTON_WIDTH - textRenderer.getWidth(label)) / 2;
-            int textY = y + (BUTTON_HEIGHT - 9) / 2;
-            context.drawText(textRenderer, label, textX, textY, 0xFFFFFF, false);
+            int tw = textRenderer.getWidth(label);
+            context.drawText(textRenderer, label, x - tw / 2, y - 4, 0xFFFFFF, false);
         }
     }
 
+    // === ОБРАБОТКА КЛИКОВ ===
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button != 0 || client == null || client.player == null || activeHand == null) {
@@ -164,18 +187,42 @@ public class SpellBookScreen extends Screen {
             return true;
         }
 
-        int clickedIndex = getButtonAt((int) mouseX, (int) mouseY);
-        if (clickedIndex == -1) {
-            close();
-            return true;
+        int cx = this.width / 2;
+        int cy = this.height / 2;
+
+        // Проверка клика по ЦЕНТРАЛЬНЫМ (группы)
+        for (int i = 0; i < 8; i++) {
+            double angle = Math.toRadians(360.0 / 8 * i - 90);
+            int x = (int)(cx + INNER_RADIUS * Math.cos(angle));
+            int y = (int)(cy + INNER_RADIUS * Math.sin(angle));
+            if (isPointInCircle((int)mouseX, (int)mouseY, x, y, BUTTON_RADIUS - 2)) {
+                this.centralGroup = i;
+                return true;
+            }
         }
 
-        selectionConfirmed = true;
-        com.hexsbm.HexSBMClient.sendChangeSpellbookPage(activeHand, clickedIndex + 1);
+        // Проверка клика по ВНЕШНИМ (страницы)
+        for (int i = 0; i < 8; i++) {
+            int pageIndex = centralGroup * GROUP_SIZE + i + 1;
+            if (pageIndex > TOTAL_PAGES) continue;
+
+            double angle = Math.toRadians(360.0 / 8 * i - 90);
+            int x = (int)(cx + OUTER_RADIUS * Math.cos(angle));
+            int y = (int)(cy + OUTER_RADIUS * Math.sin(angle));
+            if (isPointInCircle((int)mouseX, (int)mouseY, x, y, BUTTON_RADIUS)) {
+                selectionConfirmed = true;
+                com.hexsbm.HexSBMClient.sendChangeSpellbookPage(activeHand, pageIndex);
+                close();
+                return true;
+            }
+        }
+
+        // Клик вне UI — закрыть
         close();
         return true;
     }
 
+    // === ЗАКРЫТИЕ ===
     @Override
     public void close() {
         if (!selectionConfirmed) {
@@ -201,6 +248,7 @@ public class SpellBookScreen extends Screen {
         }
     }
 
+    // === УПРАВЛЕНИЕ КЛАВИАТУРОЙ ===
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == GLFW.GLFW_KEY_V) {
@@ -210,21 +258,28 @@ public class SpellBookScreen extends Screen {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
-    private int getButtonAt(int mouseX, int mouseY) {
-        for (int i = 0; i < 64; i++) {
-            int row = i / COLUMNS;
-            int col = i % COLUMNS;
-            int x = START_X + col * (BUTTON_WIDTH + 2);
-            int y = START_Y + row * (BUTTON_HEIGHT + 2);
-
-            if (mouseX >= x && mouseX < x + BUTTON_WIDTH &&
-                mouseY >= y && mouseY < y + BUTTON_HEIGHT) {
-                return i;
-            }
-        }
-        return -1;
+    // === УТИЛИТЫ РЕНДЕРА ===
+    private boolean isPointInCircle(int px, int py, int cx, int cy, int radius) {
+        return (px - cx) * (px - cx) + (py - cy) * (py - cy) <= radius * radius;
     }
 
+    private void fillCircle(DrawContext context, int cx, int cy, int r, int color) {
+        context.fill(cx - r, cy - r, cx + r, cy + r, color);
+        context.drawHorizontalLine(cx - r, cx + r, cy - r, 0xFFFFFFFF);
+        context.drawHorizontalLine(cx - r, cx + r, cy + r - 1, 0xFFFFFFFF);
+        context.drawVerticalLine(cx - r, cy - r, cy + r, 0xFFFFFFFF);
+        context.drawVerticalLine(cx + r - 1, cy - r, cy + r, 0xFFFFFFFF);
+    }
+
+    private String getPageLabel(ItemStack book, int page) {
+        String name = getCustomPageName(book, page);
+        if (name != null && !name.isEmpty()) {
+            return name.length() > 3 ? name.substring(0, 3) : name;
+        }
+        return String.valueOf(page);
+    }
+
+    // === РАБОТА С ДАННЫМИ СТРАНИЦ ===
     private String getCustomPageName(ItemStack book, int page) {
         NbtCompound nbt = book.getNbt();
         if (nbt == null || !nbt.contains("page_names", NbtElement.COMPOUND_TYPE)) {
@@ -246,6 +301,7 @@ public class SpellBookScreen extends Screen {
             return null;
         }
     }
+
     private List<Text> getPatternTooltipLines(ItemStack book, int page) {
         NbtCompound nbt = book.getNbt();
         if (nbt == null || !nbt.contains("pages", NbtElement.COMPOUND_TYPE)) {
@@ -256,10 +312,9 @@ public class SpellBookScreen extends Screen {
         String pageKey = String.valueOf(page);
 
         if (!pages.contains(pageKey, NbtElement.COMPOUND_TYPE)) {
-            return java.util.Collections.emptyList(); // пустая страница
+            return java.util.Collections.emptyList();
         }
 
-        // Чтобы не писать парсер вручную, используем fakeBook + getTooltip, но БЕЗ первой строки
         ItemStack fakeBook = book.copy();
         fakeBook.getOrCreateNbt().putInt("page_idx", page);
         List<Text> fullTooltip = fakeBook.getTooltip(client.player, TooltipContext.Default.BASIC);
@@ -268,7 +323,6 @@ public class SpellBookScreen extends Screen {
             return java.util.Collections.emptyList();
         }
 
-        // Пропускаем первую строку (название книги/страницы) — она нам НЕ нужна
         return fullTooltip.subList(1, fullTooltip.size());
     }
 }
