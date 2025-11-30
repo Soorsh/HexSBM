@@ -4,9 +4,12 @@ import com.hexsbm.HexSBM;
 import net.fabricmc.fabric.api.networking.v1.PacketSender;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.PacketByteBuf;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayNetworkHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
 import net.minecraft.item.ItemStack;
@@ -40,9 +43,33 @@ public class ChangeSpellbookPagePacket {
                 return;
             }
 
-            stack.getOrCreateNbt().putInt("page_idx", newPage);
+            // Обновляем page_idx
+            NbtCompound nbt = stack.getOrCreateNbt();
+            nbt.putInt("page_idx", newPage);
+
+            // Пытаемся прочитать имя страницы из page_names.{newPage}
+            Text pageName = null;
+            if (nbt.contains("page_names", NbtElement.COMPOUND_TYPE)) {
+                NbtCompound pageNames = nbt.getCompound("page_names");
+                String key = String.valueOf(newPage);
+                if (pageNames.contains(key, NbtElement.STRING_TYPE)) {
+                    try {
+                        pageName = Text.Serializer.fromJson(pageNames.getString(key));
+                    } catch (Exception e) {
+                        HexSBM.LOGGER.warn("Не удалось распарсить имя страницы {}: {}", newPage, e.getMessage());
+                    }
+                }
+            }
+
+            // Обновляем customName как это делает оригинальный UI Hexcasting
+            if (pageName != null) {
+                stack.setCustomName(pageName);
+            } else {
+                stack.removeCustomName(); // ← возвращает дефолтное имя ("Книга заклинаний")
+            }
+
             player.setStackInHand(hand, stack);
-            HexSBM.LOGGER.info("Страница успешно обновлена!");
+            HexSBM.LOGGER.info("Страница {} успешно обновлена! customName: {}", newPage, pageName != null ? pageName.getString() : "сброшен");
         });
     }
 }
