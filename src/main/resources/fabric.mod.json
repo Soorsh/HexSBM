@@ -3,7 +3,7 @@
 	"id": "hexsbm",
 	"version": "${version}",
 	"name": "HexSBM",
-	"description": "Quick-access Spell Book Menu for Hex Casting — inspired by Samsthenerd. Client-side only.",
+	"description": "A radial menu for navigating Hexcasting spellbook pages. Inspired by Hex Gloop.",
 	"category": "Tools",
 	"authors": ["Soorsh"],
 	"contact": {
