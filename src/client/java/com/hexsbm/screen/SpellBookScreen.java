@@ -359,6 +359,7 @@ public class SpellBookScreen extends Screen {
     }
 
     private List<Text> getPatternTooltipLines(ItemStack book, int page) {
+        // Проверяем, существует ли вообще такая страница в данных
         NbtCompound nbt = book.getNbt();
         if (nbt == null || !nbt.contains("pages", NbtElement.COMPOUND_TYPE)) {
             return Collections.emptyList();
@@ -366,7 +367,6 @@ public class SpellBookScreen extends Screen {
 
         NbtCompound pages = nbt.getCompound("pages");
         String pageKey = String.valueOf(page);
-
         if (!pages.contains(pageKey, NbtElement.COMPOUND_TYPE)) {
             return Collections.emptyList();
         }
@@ -375,11 +375,11 @@ public class SpellBookScreen extends Screen {
         fakeBook.getOrCreateNbt().putInt("page_idx", page);
         List<Text> fullTooltip = fakeBook.getTooltip(client.player, TooltipContext.Default.BASIC);
 
-        if (fullTooltip.size() <= 1) {
-            return Collections.emptyList();
+        if (fullTooltip.size() >= 3) {
+            return List.of(fullTooltip.get(2));
         }
 
-        return fullTooltip.subList(1, fullTooltip.size());
+        return Collections.emptyList();
     }
 
     // Вспомогательный класс для избежания дублирования расчёта углов
