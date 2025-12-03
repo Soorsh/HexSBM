@@ -23,12 +23,15 @@ import net.minecraft.nbt.NbtElement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Круговое меню для выбора страницы в Hexcasting Spellbook.
  * Использует двухуровневую радиальную навигацию:
  * - 8 центральных секторов переключают группы (по 8 страниц),
  * - 8 внешних секторов отображают текущую группу (всего 64 страницы).
+ * 
+ * Поддерживает установку иконок страниц через правый клик (сохраняются в NBT книги).
  */
 public class SpellBookScreen extends Screen {
     private static final Identifier SPELLBOOK_ID = new Identifier("hexcasting", "spellbook");
@@ -144,9 +147,16 @@ public class SpellBookScreen extends Screen {
             int textX = (int)(cx + (OUTER_SEGMENT_START + OUTER_SEGMENT_END) / 2.0 * Math.cos(angles.mid));
             int textY = (int)(cy + (OUTER_SEGMENT_START + OUTER_SEGMENT_END) / 2.0 * Math.sin(angles.mid));
 
-            String label = String.valueOf(pageIndex);
-            int tw = textRenderer.getWidth(label);
-            context.drawText(textRenderer, label, textX - tw / 2, textY - 4, 0xFFFFFF, false);
+            // === ОТРИСОВКА ИКОНКИ ИЛИ ЦИФРЫ ===
+            ItemStack icon = getPageIcon(currentBook, pageIndex);
+            if (!icon.isEmpty()) {
+                int size = 16;
+                context.drawItem(icon, textX - size / 2, textY - size / 2);
+            } else {
+                String label = String.valueOf(pageIndex);
+                int tw = textRenderer.getWidth(label);
+                context.drawText(textRenderer, label, textX - tw / 2, textY - 4, 0xFFFFFF, false);
+            }
 
             if (isHovered) {
                 String customName = getCustomPageName(currentBook, pageIndex);
@@ -191,7 +201,7 @@ public class SpellBookScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button != 0 || client == null || client.player == null || activeHand == null) {
+        if (client == null || client.player == null || activeHand == null) {
             close();
             return true;
         }
@@ -201,6 +211,51 @@ public class SpellBookScreen extends Screen {
         int mx = (int) mouseX;
         int my = (int) mouseY;
 
+        if (button == 1) {
+            return handleRightClick(mx, my, cx, cy);
+        } else if (button == 0) {
+            return handleLeftClick(mx, my, cx, cy);
+        }
+
+        close();
+        return true;
+    }
+
+    private boolean handleRightClick(int mx, int my, int cx, int cy) {
+        ItemStack currentBook = getCurrentBook();
+        if (currentBook.isEmpty()) return false;
+
+        for (int i = 0; i < 8; i++) {
+            int pageIndex = centralGroup * GROUP_SIZE + i + 1;
+            if (pageIndex > TOTAL_PAGES) continue;
+
+            SectorAngles angles = new SectorAngles(i);
+            if (isPointInCircularSegment(mx, my, cx, cy, OUTER_SEGMENT_START, OUTER_SEGMENT_END, angles.start, angles.end)) {
+                ClientPlayerEntity player = client.player;
+                int selectedSlot = player.getInventory().selectedSlot; // ← ПРАВИЛЬНО
+                ItemStack rawSource = player.getInventory().getStack(selectedSlot);
+                ItemStack iconSource = makeIconOnly(rawSource);
+
+                NbtCompound bookNbt = currentBook.getOrCreateNbt();
+                NbtCompound pageIcons = bookNbt.getCompound("page_icons");
+
+                if (!iconSource.isEmpty()) {
+                    NbtCompound iconNbt = new NbtCompound();
+                    iconSource.writeNbt(iconNbt);
+                    pageIcons.put(String.valueOf(pageIndex), iconNbt);
+                } else {
+                    pageIcons.remove(String.valueOf(pageIndex));
+                }
+
+                bookNbt.put("page_icons", pageIcons);
+                com.hexsbm.HexSBMClient.sendUpdatePageIcon(activeHand, pageIndex, iconSource);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean handleLeftClick(int mx, int my, int cx, int cy) {
         // Клик по внутренним секторам (группы)
         for (int i = 0; i < 8; i++) {
             SectorAngles angles = new SectorAngles(i);
@@ -247,7 +302,6 @@ public class SpellBookScreen extends Screen {
         if (!handStack.isEmpty() && Registries.ITEM.getId(handStack.getItem()).equals(SPELLBOOK_ID)) {
             NbtCompound nbt = handStack.getOrCreateNbt();
             nbt.putInt("page_idx", originalPageIdx);
-            // NBT уже мутабелен — копия не нужна
         }
     }
 
@@ -277,6 +331,66 @@ public class SpellBookScreen extends Screen {
             return off;
         }
         return ItemStack.EMPTY;
+    }
+
+    private ItemStack getPageIcon(ItemStack book, int pageIndex) {
+        NbtCompound nbt = book.getNbt();
+        if (nbt == null || !nbt.contains("page_icons", NbtElement.COMPOUND_TYPE)) {
+            return ItemStack.EMPTY;
+        }
+
+        NbtCompound pageIcons = nbt.getCompound("page_icons");
+        String key = String.valueOf(pageIndex);
+        if (!pageIcons.contains(key, NbtElement.COMPOUND_TYPE)) {
+            return ItemStack.EMPTY;
+        }
+
+        try {
+            return ItemStack.fromNbt(pageIcons.getCompound(key));
+        } catch (Exception e) {
+            return ItemStack.EMPTY;
+        }
+    }
+
+    private static final Set<String> VISUAL_NBT_TAGS = Set.of(
+        "Enchantments",
+        "display",
+        "CustomPotionColor",
+        "Potion",
+        "SkullOwner",
+        "EntityTag",
+        // Hexcasting-специфичные:
+        "hexcasting:pattern_data",
+        "hexcasting:amulet_state",
+        "hexcasting:op_code",
+        "op_id"
+    );
+    private static ItemStack makeIconOnly(ItemStack original) {        
+        if (original.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+
+        ItemStack icon = new ItemStack(original.getItem(), 1);
+        NbtCompound originalTag = original.getNbt();
+
+        if (originalTag != null) {
+            NbtCompound cleanTag = new NbtCompound();
+
+            for (String key : VISUAL_NBT_TAGS) {
+                if (originalTag.contains(key, NbtElement.COMPOUND_TYPE) ||
+                    originalTag.contains(key, NbtElement.LIST_TYPE) ||
+                    originalTag.contains(key, NbtElement.STRING_TYPE) ||
+                    originalTag.contains(key, NbtElement.INT_TYPE)) {
+                    cleanTag.put(key, originalTag.get(key).copy());
+                }
+            }
+
+            if (!cleanTag.isEmpty()) {
+                icon.setNbt(cleanTag);
+            }
+        }
+
+        return icon;
     }
 
     private boolean isPointInCircularSegment(int px, int py, int cx, int cy,
@@ -359,7 +473,6 @@ public class SpellBookScreen extends Screen {
     }
 
     private List<Text> getPatternTooltipLines(ItemStack book, int page) {
-        // Проверяем, существует ли вообще такая страница в данных
         NbtCompound nbt = book.getNbt();
         if (nbt == null || !nbt.contains("pages", NbtElement.COMPOUND_TYPE)) {
             return Collections.emptyList();
@@ -382,7 +495,6 @@ public class SpellBookScreen extends Screen {
         return Collections.emptyList();
     }
 
-    // Вспомогательный класс для избежания дублирования расчёта углов
     private static final class SectorAngles {
         final double start, mid, end;
 

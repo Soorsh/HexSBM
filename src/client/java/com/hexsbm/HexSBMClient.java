@@ -4,6 +4,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
@@ -37,5 +38,22 @@ public class HexSBMClient implements ClientModInitializer {
         buf.writeEnumConstant(hand);
         buf.writeInt(newPage);
         ClientPlayNetworking.send(CHANGE_SPELLBOOK_PAGE_PACKET, buf);
+    }
+
+    private static final Identifier UPDATE_PAGE_ICON_PACKET = new Identifier("hexsbm", "update_page_icon");
+
+    /**
+     * Отправляет запрос на обновление иконки страницы.
+     *
+     * @param hand рука, в которой книга
+     * @param pageIndex номер страницы (1–64)
+     * @param iconStack предмет-иконка (может быть EMPTY для удаления)
+     */
+    public static void sendUpdatePageIcon(Hand hand, int pageIndex, ItemStack iconStack) {
+        PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
+        buf.writeEnumConstant(hand);
+        buf.writeInt(pageIndex);
+        buf.writeItemStack(iconStack); // ← Fabric умеет это
+        ClientPlayNetworking.send(UPDATE_PAGE_ICON_PACKET, buf);
     }
 }

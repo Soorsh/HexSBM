@@ -1,6 +1,7 @@
 package com.hexsbm;
 
 import com.hexsbm.network.ChangeSpellbookPagePacket;
+import com.hexsbm.network.UpdatePageIconPacket;
 import net.fabricmc.api.ModInitializer;
 import net.minecraft.util.Identifier;
 import org.slf4j.Logger;
@@ -23,7 +24,7 @@ public class HexSBM implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        // Регистрация серверного пакета (на клиенте вызов игнорируется)
+        UpdatePageIconPacket.register();
         ChangeSpellbookPagePacket.register();
     }
 }
