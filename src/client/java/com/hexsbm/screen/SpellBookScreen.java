@@ -8,6 +8,7 @@ import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
+import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Hand;
@@ -493,6 +494,26 @@ public class SpellBookScreen extends Screen {
         }
 
         return Collections.emptyList();
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
+        if (client != null && client.player != null) {
+            PlayerInventory inventory = client.player.getInventory();
+            int current = inventory.selectedSlot;
+            int newSlot;
+
+            // amount > 0 → прокрутка ВВЕРХ (предыдущий слот)
+            if (amount > 0) {
+                newSlot = current == 0 ? 8 : current - 1;
+            } else {
+                newSlot = current == 8 ? 0 : current + 1;
+            }
+
+            inventory.selectedSlot = newSlot;
+            return true;
+        }
+        return false;
     }
 
     private static final class SectorAngles {
