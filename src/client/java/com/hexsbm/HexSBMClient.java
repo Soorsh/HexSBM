@@ -56,4 +56,21 @@ public class HexSBMClient implements ClientModInitializer {
         buf.writeItemStack(iconStack); // ← Fabric умеет это
         ClientPlayNetworking.send(UPDATE_PAGE_ICON_PACKET, buf);
     }
+
+    private static final Identifier UPDATE_GROUP_ICON_PACKET = new Identifier("hexsbm", "update_group_icon");
+
+    /**
+     * Отправляет запрос на обновление иконки группы.
+     *
+     * @param hand рука, в которой книга
+     * @param groupIndex индекс группы (0–7)
+     * @param iconStack предмет-иконка (может быть EMPTY для удаления)
+     */
+    public static void sendUpdateGroupIcon(Hand hand, int groupIndex, ItemStack iconStack) {
+        PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
+        buf.writeEnumConstant(hand);
+        buf.writeInt(groupIndex);
+        buf.writeItemStack(iconStack);
+        ClientPlayNetworking.send(UPDATE_GROUP_ICON_PACKET, buf);
+    }
 }

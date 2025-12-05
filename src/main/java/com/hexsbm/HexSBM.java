@@ -1,6 +1,7 @@
 package com.hexsbm;
 
 import com.hexsbm.network.ChangeSpellbookPagePacket;
+import com.hexsbm.network.UpdateGroupIconPacket;
 import com.hexsbm.network.UpdatePageIconPacket;
 import net.fabricmc.api.ModInitializer;
 import net.minecraft.util.Identifier;
@@ -25,6 +26,7 @@ public class HexSBM implements ModInitializer {
     @Override
     public void onInitialize() {
         UpdatePageIconPacket.register();
+        UpdateGroupIconPacket.register();
         ChangeSpellbookPagePacket.register();
     }
 }

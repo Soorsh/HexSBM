@@ -30,7 +30,8 @@ import java.util.Set;
 /**
  * Круговое меню для выбора страницы в Hexcasting Spellbook.
  * Цветовая тема динамически подстраивается под выбранный пигмент игрока.
- * Цифры удалены: ориентир — только иконки и цветовая подсветка.
+ * Градиент + кастомные иконки на обоих кольцах (страницы и группы).
+ * Рамки удалены. Иконки групп сохраняются локально (без пакета).
  */
 public class SpellBookScreen extends Screen {
     private static final Identifier SPELLBOOK_ID = new Identifier("hexcasting", "spellbook");
@@ -141,15 +142,27 @@ public class SpellBookScreen extends Screen {
             boolean isHovered = isPointInCircularSegment(mouseX, mouseY, cx, cy,
                     OUTER_SEGMENT_START, OUTER_SEGMENT_END, angles.start, angles.end);
 
-            int base = (0x75 << 24) | (pigmentColor & 0x00FFFFFF);
-            int hovered = (0x90 << 24) | (lighten(pigmentColor, 0.3f) & 0x00FFFFFF);
-            int current = (0xCC << 24) | (lighten(pigmentColor, 0.5f) & 0x00FFFFFF);
-            int color = isCurrent ? current : isHovered ? hovered : base;
+            // База: мягкий градиент, почти плоский
+            int baseInner  = (0x65 << 24) | (darken(pigmentColor, 0.1f) & 0x00FFFFFF);
+            int baseOuter  = (0x75 << 24) | (pigmentColor & 0x00FFFFFF);
 
-            fillCircularSegment(context, cx, cy, OUTER_SEGMENT_START, OUTER_SEGMENT_END,
-                    angles.start, angles.end, color);
+            // Ховер: чуть светлее, но не "вспышка"
+            int hoverInner = (0x75 << 24) | (pigmentColor & 0x00FFFFFF);
+            int hoverOuter = (0x85 << 24) | (lighten(pigmentColor, 0.15f) & 0x00FFFFFF);
 
-            // === Только иконка, без текста ===
+            // Выбрано: акцент, но в рамках тональности
+            int currInner  = (0x85 << 24) | (lighten(pigmentColor, 0.15f) & 0x00FFFFFF);
+            int currOuter  = (0xA0 << 24) | (lighten(pigmentColor, 0.25f) & 0x00FFFFFF);
+
+            int innerCol = isCurrent ? currInner : isHovered ? hoverInner : baseInner;
+            int outerCol = isCurrent ? currOuter : isHovered ? hoverOuter : baseOuter;
+
+            fillCircularSegmentWithGradient(context, cx, cy,
+                OUTER_SEGMENT_START, OUTER_SEGMENT_END,
+                angles.start, angles.end,
+                innerCol, outerCol);
+
+            // === Иконка страницы ===
             int textX = (int)(cx + (OUTER_SEGMENT_START + OUTER_SEGMENT_END) / 2.0 * Math.cos(angles.mid));
             int textY = (int)(cy + (OUTER_SEGMENT_START + OUTER_SEGMENT_END) / 2.0 * Math.sin(angles.mid));
 
@@ -184,14 +197,80 @@ public class SpellBookScreen extends Screen {
             boolean isHovered = isPointInCircularSegment(mouseX, mouseY, cx, cy,
                     INNER_SEGMENT_START, INNER_SEGMENT_END, angles.start, angles.end);
 
-            int base = (0x75 << 24) | (darken(pigmentColor, 0.2f) & 0x00FFFFFF);
-            int hovered = (0x90 << 24) | (pigmentColor & 0x00FFFFFF);
-            int current = (0xCC << 24) | (lighten(pigmentColor, 0.4f) & 0x00FFFFFF);
-            int color = isCurrentGroup ? current : isHovered ? hovered : base;
+            int baseInnerG  = (0x55 << 24) | (darken(pigmentColor, 0.25f) & 0x00FFFFFF);
+            int baseOuterG  = (0x65 << 24) | (darken(pigmentColor, 0.1f) & 0x00FFFFFF);
 
-            fillCircularSegment(context, cx, cy, INNER_SEGMENT_START, INNER_SEGMENT_END,
-                    angles.start, angles.end, color);
+            int hoverInnerG = (0x65 << 24) | (darken(pigmentColor, 0.1f) & 0x00FFFFFF);
+            int hoverOuterG = (0x75 << 24) | (pigmentColor & 0x00FFFFFF);
+
+            int currInnerG  = (0x80 << 24) | (pigmentColor & 0x00FFFFFF);
+            int currOuterG  = (0x90 << 24) | (lighten(pigmentColor, 0.2f) & 0x00FFFFFF);
+
+            int innerColG = isCurrentGroup ? currInnerG : isHovered ? hoverInnerG : baseInnerG;
+            int outerColG = isCurrentGroup ? currOuterG : isHovered ? hoverOuterG : baseOuterG;
+
+            fillCircularSegmentWithGradient(context, cx, cy,
+                INNER_SEGMENT_START, INNER_SEGMENT_END,
+                angles.start, angles.end,
+                innerColG, outerColG);
+
+            // === Иконка группы (из NBT) ===
+            ItemStack groupIcon = getGroupIcon(currentBook, i);
+            if (!groupIcon.isEmpty()) {
+                int iconRadius = (INNER_SEGMENT_START + INNER_SEGMENT_END) / 2;
+                int iconX = (int)(cx + iconRadius * Math.cos(angles.mid));
+                int iconY = (int)(cy + iconRadius * Math.sin(angles.mid));
+                context.drawItem(groupIcon, iconX - 8, iconY - 8);
+            }
+
+            // Тултип для группы (опционально)
+            if (isHovered && !groupIcon.isEmpty()) {
+                context.drawTooltip(textRenderer, groupIcon.getTooltip(client.player, TooltipContext.Default.BASIC), mouseX, mouseY);
+            }
         }
+    }
+
+    // === Градиентная заливка сегмента ===
+    private void fillCircularSegmentWithGradient(
+        DrawContext context,
+        int cx, int cy,
+        int innerRadius, int outerRadius,
+        double startAngle, double endAngle,
+        int innerColor, int outerColor
+    ) {
+        Matrix4f matrix = context.getMatrices().peek().getPositionMatrix();
+        Tessellator tessellator = Tessellator.getInstance();
+        var bufferBuilder = tessellator.getBuffer();
+
+        float ir = (innerColor >> 16 & 0xFF) / 255f;
+        float ig = (innerColor >> 8 & 0xFF) / 255f;
+        float ib = (innerColor & 0xFF) / 255f;
+        float ia = (innerColor >> 24 & 0xFF) / 255f;
+
+        float or = (outerColor >> 16 & 0xFF) / 255f;
+        float og = (outerColor >> 8 & 0xFF) / 255f;
+        float ob = (outerColor & 0xFF) / 255f;
+        float oa = (outerColor >> 24 & 0xFF) / 255f;
+
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
+        int segments = Math.max(4, (int) ((endAngle - startAngle) / (Math.PI / 30)));
+
+        bufferBuilder.begin(VertexFormat.DrawMode.TRIANGLE_STRIP, VertexFormats.POSITION_COLOR);
+        for (int i = 0; i <= segments; i++) {
+            double angle = MathHelper.lerp((double) i / segments, startAngle, endAngle);
+            float cos = (float) Math.cos(angle);
+            float sin = (float) Math.sin(angle);
+
+            bufferBuilder.vertex(matrix, cx + outerRadius * cos, cy + outerRadius * sin, 0)
+                .color(or, og, ob, oa).next();
+            bufferBuilder.vertex(matrix, cx + innerRadius * cos, cy + innerRadius * sin, 0)
+                .color(ir, ig, ib, ia).next();
+        }
+        tessellator.draw();
+        RenderSystem.disableBlend();
     }
 
     // === Вспомогательные методы для работы с цветом ===
@@ -244,6 +323,33 @@ public class SpellBookScreen extends Screen {
         ItemStack currentBook = getCurrentBook();
         if (currentBook.isEmpty()) return false;
 
+        // === Сначала проверяем внутренние секторы (группы) ===
+        for (int i = 0; i < 8; i++) {
+            SectorAngles angles = new SectorAngles(i);
+            if (isPointInCircularSegment(mx, my, cx, cy, INNER_SEGMENT_START, INNER_SEGMENT_END, angles.start, angles.end)) {
+                ClientPlayerEntity player = client.player;
+                int selectedSlot = player.getInventory().selectedSlot;
+                ItemStack rawSource = player.getInventory().getStack(selectedSlot);
+                ItemStack iconSource = makeIconOnly(rawSource);
+
+                NbtCompound bookNbt = currentBook.getOrCreateNbt();
+                NbtCompound groupIcons = bookNbt.getCompound("group_icons");
+
+                if (!iconSource.isEmpty()) {
+                    NbtCompound iconNbt = new NbtCompound();
+                    iconSource.writeNbt(iconNbt);
+                    groupIcons.put(String.valueOf(i), iconNbt);
+                } else {
+                    groupIcons.remove(String.valueOf(i));
+                }
+
+                bookNbt.put("group_icons", groupIcons);
+                com.hexsbm.HexSBMClient.sendUpdateGroupIcon(activeHand, i, iconSource);
+                return true;
+            }
+        }
+
+        // === Потом внешние секторы (страницы) ===
         for (int i = 0; i < 8; i++) {
             int pageIndex = centralGroup * GROUP_SIZE + i + 1;
             if (pageIndex > TOTAL_PAGES) continue;
@@ -357,6 +463,21 @@ public class SpellBookScreen extends Screen {
         }
     }
 
+    private ItemStack getGroupIcon(ItemStack book, int groupIndex) {
+        NbtCompound nbt = book.getNbt();
+        if (nbt == null || !nbt.contains("group_icons", NbtElement.COMPOUND_TYPE)) return ItemStack.EMPTY;
+
+        NbtCompound groupIcons = nbt.getCompound("group_icons");
+        String key = String.valueOf(groupIndex);
+        if (!groupIcons.contains(key, NbtElement.COMPOUND_TYPE)) return ItemStack.EMPTY;
+
+        try {
+            return ItemStack.fromNbt(groupIcons.getCompound(key));
+        } catch (Exception e) {
+            return ItemStack.EMPTY;
+        }
+    }
+
     private static final Set<String> VISUAL_NBT_TAGS = Set.of(
         "Enchantments", "display", "CustomPotionColor", "Potion", "SkullOwner", "EntityTag",
         "hexcasting:pattern_data", "hexcasting:amulet_state", "hexcasting:op_code", "op_id"
@@ -400,36 +521,7 @@ public class SpellBookScreen extends Screen {
             return angle >= normStart || angle <= normEnd;
         }
     }
-
-    private void fillCircularSegment(DrawContext context, int cx, int cy, int innerRadius, int outerRadius,
-                                double startAngle, double endAngle, int color) {
-        Matrix4f matrix = context.getMatrices().peek().getPositionMatrix();
-        Tessellator tessellator = Tessellator.getInstance();
-        var bufferBuilder = tessellator.getBuffer();
-
-        float a = (float)(color >> 24 & 255) / 255.0F;
-        float r = (float)(color >> 16 & 255) / 255.0F;
-        float g = (float)(color >> 8 & 255) / 255.0F;
-        float b = (float)(color & 255) / 255.0F;
-
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-
-        int segments = Math.max(4, (int) ((endAngle - startAngle) / (Math.PI / 30)));
-
-        bufferBuilder.begin(VertexFormat.DrawMode.TRIANGLE_STRIP, VertexFormats.POSITION_COLOR);
-        for (int i = 0; i <= segments; i++) {
-            double angle = MathHelper.lerp((double) i / segments, startAngle, endAngle);
-            float cos = (float) Math.cos(angle);
-            float sin = (float) Math.sin(angle);
-            bufferBuilder.vertex(matrix, cx + outerRadius * cos, cy + outerRadius * sin, 0).color(r, g, b, a).next();
-            bufferBuilder.vertex(matrix, cx + innerRadius * cos, cy + innerRadius * sin, 0).color(r, g, b, a).next();
-        }
-        tessellator.draw();
-        RenderSystem.disableBlend();
-    }
-
+    
     private String getCustomPageName(ItemStack book, int page) {
         NbtCompound nbt = book.getNbt();
         if (nbt == null || !nbt.contains("page_names", NbtElement.COMPOUND_TYPE)) return null;
