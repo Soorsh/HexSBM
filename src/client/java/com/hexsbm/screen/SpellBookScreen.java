@@ -1,5 +1,7 @@
 package com.hexsbm.screen;
 
+import com.hexsbm.screen.pigment.PigmentColorRegistry;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.item.TooltipContext;
@@ -9,17 +11,16 @@ import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.MathHelper;
 import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import org.joml.Matrix4f;
-import org.lwjgl.glfw.GLFW;
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
+import net.minecraft.registry.Registries;
+import net.minecraft.text.Text;
+import net.minecraft.util.Hand;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.math.MathHelper;
+import org.joml.Matrix4f;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,21 +29,13 @@ import java.util.Set;
 
 /**
  * Круговое меню для выбора страницы в Hexcasting Spellbook.
- * Использует двухуровневую радиальную навигацию:
- * - 8 центральных секторов переключают группы (по 8 страниц),
- * - 8 внешних секторов отображают текущую группу (всего 64 страницы).
- * 
- * Поддерживает установку иконок страниц через правый клик (сохраняются в NBT книги).
+ * Цветовая тема динамически подстраивается под выбранный пигмент игрока.
+ * Цифры удалены: ориентир — только иконки и цветовая подсветка.
  */
 public class SpellBookScreen extends Screen {
     private static final Identifier SPELLBOOK_ID = new Identifier("hexcasting", "spellbook");
 
-    // Цвета (альфа-красный-зелёный-синий в шестнадцатеричном формате)
-    private static final int COLOR_CURRENT_PAGE   = 0xCC44FF44;
-    private static final int COLOR_HOVERED        = 0x90FFFFFF;
-    private static final int COLOR_DEFAULT_PAGE   = 0x75CCCCCC;
-    private static final int COLOR_CURRENT_GROUP  = 0xCC4488FF;
-    private static final int COLOR_DEFAULT_GROUP  = 0x75AAAAFF;
+    private int pigmentColor = 0xFFFFFFFF; // по умолчанию белый
 
     private int originalPageIdx = -1;
     private Hand activeHand = null;
@@ -52,7 +45,6 @@ public class SpellBookScreen extends Screen {
     private static final int GROUP_SIZE = 8;
     private static final int TOTAL_PAGES = 64;
 
-    // Радиусы для секторов
     private static final int INNER_SEGMENT_START = 30;
     private static final int INNER_SEGMENT_END   = 60;
     private static final int OUTER_SEGMENT_START = 70;
@@ -72,10 +64,23 @@ public class SpellBookScreen extends Screen {
         }
 
         ClientPlayerEntity player = client.player;
+
+        // === Получаем цвет пигмента из NBT игрока ===
+        NbtCompound playerNbt = player.writeNbt(new NbtCompound());
+        NbtCompound cc = playerNbt.getCompound("cardinal_components");
+        if (cc.contains("hexcasting:favored_pigment", 10)) {
+            NbtCompound pigment = cc.getCompound("hexcasting:favored_pigment");
+            if (pigment.contains("pigment", 10)) {
+                String pigmentId = pigment.getCompound("pigment").getCompound("stack").getString("id");
+                this.pigmentColor = PigmentColorRegistry.getColor(pigmentId);
+            }
+        }
+
+        // === Определяем, какая книга открыта ===
         ItemStack main = player.getMainHandStack();
         ItemStack off = player.getOffHandStack();
-
         ItemStack currentBook;
+
         if (!main.isEmpty() && Registries.ITEM.getId(main.getItem()).equals(SPELLBOOK_ID)) {
             currentBook = main;
             activeHand = Hand.MAIN_HAND;
@@ -93,7 +98,6 @@ public class SpellBookScreen extends Screen {
             : 1;
 
         this.selectionConfirmed = false;
-
         if (this.originalPageIdx != -1) {
             this.centralGroup = Math.max(0, Math.min(7, (this.originalPageIdx - 1) / GROUP_SIZE));
         }
@@ -113,7 +117,6 @@ public class SpellBookScreen extends Screen {
 
         ItemStack currentBook = getCurrentBook();
         int currentPageIdx = 1;
-
         if (!currentBook.isEmpty()) {
             NbtCompound nbt = currentBook.getNbt();
             if (nbt != null && nbt.contains("page_idx", NbtElement.INT_TYPE)) {
@@ -128,7 +131,7 @@ public class SpellBookScreen extends Screen {
         int cx = this.width / 2;
         int cy = this.height / 2;
 
-        // Внешние секторы — страницы внутри текущей группы
+        // === Внешние секторы: страницы ===
         for (int i = 0; i < 8; i++) {
             int pageIndex = centralGroup * GROUP_SIZE + i + 1;
             if (pageIndex > TOTAL_PAGES) continue;
@@ -138,27 +141,24 @@ public class SpellBookScreen extends Screen {
             boolean isHovered = isPointInCircularSegment(mouseX, mouseY, cx, cy,
                     OUTER_SEGMENT_START, OUTER_SEGMENT_END, angles.start, angles.end);
 
-            int color = isCurrent ? COLOR_CURRENT_PAGE :
-                        isHovered ? COLOR_HOVERED :
-                                    COLOR_DEFAULT_PAGE;
+            int base = (0x75 << 24) | (pigmentColor & 0x00FFFFFF);
+            int hovered = (0x90 << 24) | (lighten(pigmentColor, 0.3f) & 0x00FFFFFF);
+            int current = (0xCC << 24) | (lighten(pigmentColor, 0.5f) & 0x00FFFFFF);
+            int color = isCurrent ? current : isHovered ? hovered : base;
 
             fillCircularSegment(context, cx, cy, OUTER_SEGMENT_START, OUTER_SEGMENT_END,
                     angles.start, angles.end, color);
 
+            // === Только иконка, без текста ===
             int textX = (int)(cx + (OUTER_SEGMENT_START + OUTER_SEGMENT_END) / 2.0 * Math.cos(angles.mid));
             int textY = (int)(cy + (OUTER_SEGMENT_START + OUTER_SEGMENT_END) / 2.0 * Math.sin(angles.mid));
 
-            // === ОТРИСОВКА ИКОНКИ ИЛИ ЦИФРЫ ===
             ItemStack icon = getPageIcon(currentBook, pageIndex);
             if (!icon.isEmpty()) {
-                int size = 16;
-                context.drawItem(icon, textX - size / 2, textY - size / 2);
-            } else {
-                String label = String.valueOf(pageIndex);
-                int tw = textRenderer.getWidth(label);
-                context.drawText(textRenderer, label, textX - tw / 2, textY - 4, 0xFFFFFF, false);
+                context.drawItem(icon, textX - 8, textY - 8);
             }
 
+            // Тултип при наведении
             if (isHovered) {
                 String customName = getCustomPageName(currentBook, pageIndex);
                 List<Text> patterns = getPatternTooltipLines(currentBook, pageIndex);
@@ -177,28 +177,46 @@ public class SpellBookScreen extends Screen {
             }
         }
 
-        // Внутренние секторы — выбор группы
+        // === Внутренние секторы: группы ===
         for (int i = 0; i < 8; i++) {
             SectorAngles angles = new SectorAngles(i);
             boolean isCurrentGroup = (i == centralGroup);
             boolean isHovered = isPointInCircularSegment(mouseX, mouseY, cx, cy,
                     INNER_SEGMENT_START, INNER_SEGMENT_END, angles.start, angles.end);
 
-            int color = isCurrentGroup ? COLOR_CURRENT_GROUP :
-                        isHovered      ? COLOR_HOVERED :
-                                         COLOR_DEFAULT_GROUP;
+            int base = (0x75 << 24) | (darken(pigmentColor, 0.2f) & 0x00FFFFFF);
+            int hovered = (0x90 << 24) | (pigmentColor & 0x00FFFFFF);
+            int current = (0xCC << 24) | (lighten(pigmentColor, 0.4f) & 0x00FFFFFF);
+            int color = isCurrentGroup ? current : isHovered ? hovered : base;
 
             fillCircularSegment(context, cx, cy, INNER_SEGMENT_START, INNER_SEGMENT_END,
                     angles.start, angles.end, color);
-
-            int textX = (int)(cx + (INNER_SEGMENT_START + INNER_SEGMENT_END) / 2.0 * Math.cos(angles.mid));
-            int textY = (int)(cy + (INNER_SEGMENT_START + INNER_SEGMENT_END) / 2.0 * Math.sin(angles.mid));
-
-            String label = String.valueOf(i + 1);
-            int tw = textRenderer.getWidth(label);
-            context.drawText(textRenderer, label, textX - tw / 2, textY - 4, 0xFFFFFF, false);
         }
     }
+
+    // === Вспомогательные методы для работы с цветом ===
+
+    private int lighten(int color, float factor) {
+        float r = ((color >> 16) & 0xFF) / 255f;
+        float g = ((color >> 8) & 0xFF) / 255f;
+        float b = (color & 0xFF) / 255f;
+        r = Math.min(1, r + factor);
+        g = Math.min(1, g + factor);
+        b = Math.min(1, b + factor);
+        return (color & 0xFF000000) | ((int)(r * 255) << 16) | ((int)(g * 255) << 8) | (int)(b * 255);
+    }
+
+    private int darken(int color, float factor) {
+        float r = ((color >> 16) & 0xFF) / 255f;
+        float g = ((color >> 8) & 0xFF) / 255f;
+        float b = (color & 0xFF) / 255f;
+        r = Math.max(0, r - factor);
+        g = Math.max(0, g - factor);
+        b = Math.max(0, b - factor);
+        return (color & 0xFF000000) | ((int)(r * 255) << 16) | ((int)(g * 255) << 8) | (int)(b * 255);
+    }
+
+    // === Остальные методы (без изменений) ===
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -233,7 +251,7 @@ public class SpellBookScreen extends Screen {
             SectorAngles angles = new SectorAngles(i);
             if (isPointInCircularSegment(mx, my, cx, cy, OUTER_SEGMENT_START, OUTER_SEGMENT_END, angles.start, angles.end)) {
                 ClientPlayerEntity player = client.player;
-                int selectedSlot = player.getInventory().selectedSlot; // ← ПРАВИЛЬНО
+                int selectedSlot = player.getInventory().selectedSlot;
                 ItemStack rawSource = player.getInventory().getStack(selectedSlot);
                 ItemStack iconSource = makeIconOnly(rawSource);
 
@@ -257,7 +275,6 @@ public class SpellBookScreen extends Screen {
     }
 
     private boolean handleLeftClick(int mx, int my, int cx, int cy) {
-        // Клик по внутренним секторам (группы)
         for (int i = 0; i < 8; i++) {
             SectorAngles angles = new SectorAngles(i);
             if (isPointInCircularSegment(mx, my, cx, cy, INNER_SEGMENT_START, INNER_SEGMENT_END, angles.start, angles.end)) {
@@ -266,7 +283,6 @@ public class SpellBookScreen extends Screen {
             }
         }
 
-        // Клик по внешним секторам (страницы)
         for (int i = 0; i < 8; i++) {
             int pageIndex = centralGroup * GROUP_SIZE + i + 1;
             if (pageIndex > TOTAL_PAGES) continue;
@@ -315,36 +331,24 @@ public class SpellBookScreen extends Screen {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
-    // === ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ===
-
     private ItemStack getCurrentBook() {
-        if (client == null || client.player == null) {
-            return ItemStack.EMPTY;
-        }
+        if (client == null || client.player == null) return ItemStack.EMPTY;
         ClientPlayerEntity player = client.player;
         ItemStack main = player.getMainHandStack();
         ItemStack off = player.getOffHandStack();
 
-        if (!main.isEmpty() && Registries.ITEM.getId(main.getItem()).equals(SPELLBOOK_ID)) {
-            return main;
-        }
-        if (!off.isEmpty() && Registries.ITEM.getId(off.getItem()).equals(SPELLBOOK_ID)) {
-            return off;
-        }
+        if (!main.isEmpty() && Registries.ITEM.getId(main.getItem()).equals(SPELLBOOK_ID)) return main;
+        if (!off.isEmpty() && Registries.ITEM.getId(off.getItem()).equals(SPELLBOOK_ID)) return off;
         return ItemStack.EMPTY;
     }
 
     private ItemStack getPageIcon(ItemStack book, int pageIndex) {
         NbtCompound nbt = book.getNbt();
-        if (nbt == null || !nbt.contains("page_icons", NbtElement.COMPOUND_TYPE)) {
-            return ItemStack.EMPTY;
-        }
+        if (nbt == null || !nbt.contains("page_icons", NbtElement.COMPOUND_TYPE)) return ItemStack.EMPTY;
 
         NbtCompound pageIcons = nbt.getCompound("page_icons");
         String key = String.valueOf(pageIndex);
-        if (!pageIcons.contains(key, NbtElement.COMPOUND_TYPE)) {
-            return ItemStack.EMPTY;
-        }
+        if (!pageIcons.contains(key, NbtElement.COMPOUND_TYPE)) return ItemStack.EMPTY;
 
         try {
             return ItemStack.fromNbt(pageIcons.getCompound(key));
@@ -354,29 +358,16 @@ public class SpellBookScreen extends Screen {
     }
 
     private static final Set<String> VISUAL_NBT_TAGS = Set.of(
-        "Enchantments",
-        "display",
-        "CustomPotionColor",
-        "Potion",
-        "SkullOwner",
-        "EntityTag",
-        // Hexcasting-специфичные:
-        "hexcasting:pattern_data",
-        "hexcasting:amulet_state",
-        "hexcasting:op_code",
-        "op_id"
+        "Enchantments", "display", "CustomPotionColor", "Potion", "SkullOwner", "EntityTag",
+        "hexcasting:pattern_data", "hexcasting:amulet_state", "hexcasting:op_code", "op_id"
     );
-    private static ItemStack makeIconOnly(ItemStack original) {        
-        if (original.isEmpty()) {
-            return ItemStack.EMPTY;
-        }
 
+    private static ItemStack makeIconOnly(ItemStack original) {
+        if (original.isEmpty()) return ItemStack.EMPTY;
         ItemStack icon = new ItemStack(original.getItem(), 1);
         NbtCompound originalTag = original.getNbt();
-
         if (originalTag != null) {
             NbtCompound cleanTag = new NbtCompound();
-
             for (String key : VISUAL_NBT_TAGS) {
                 if (originalTag.contains(key, NbtElement.COMPOUND_TYPE) ||
                     originalTag.contains(key, NbtElement.LIST_TYPE) ||
@@ -385,12 +376,8 @@ public class SpellBookScreen extends Screen {
                     cleanTag.put(key, originalTag.get(key).copy());
                 }
             }
-
-            if (!cleanTag.isEmpty()) {
-                icon.setNbt(cleanTag);
-            }
+            if (!cleanTag.isEmpty()) icon.setNbt(cleanTag);
         }
-
         return icon;
     }
 
@@ -417,7 +404,6 @@ public class SpellBookScreen extends Screen {
     private void fillCircularSegment(DrawContext context, int cx, int cy, int innerRadius, int outerRadius,
                                 double startAngle, double endAngle, int color) {
         Matrix4f matrix = context.getMatrices().peek().getPositionMatrix();
-
         Tessellator tessellator = Tessellator.getInstance();
         var bufferBuilder = tessellator.getBuffer();
 
@@ -433,37 +419,23 @@ public class SpellBookScreen extends Screen {
         int segments = Math.max(4, (int) ((endAngle - startAngle) / (Math.PI / 30)));
 
         bufferBuilder.begin(VertexFormat.DrawMode.TRIANGLE_STRIP, VertexFormats.POSITION_COLOR);
-
         for (int i = 0; i <= segments; i++) {
             double angle = MathHelper.lerp((double) i / segments, startAngle, endAngle);
             float cos = (float) Math.cos(angle);
             float sin = (float) Math.sin(angle);
-
-            bufferBuilder.vertex(matrix, cx + outerRadius * cos, cy + outerRadius * sin, 0)
-                        .color(r, g, b, a)
-                        .next();
-            bufferBuilder.vertex(matrix, cx + innerRadius * cos, cy + innerRadius * sin, 0)
-                        .color(r, g, b, a)
-                        .next();
+            bufferBuilder.vertex(matrix, cx + outerRadius * cos, cy + outerRadius * sin, 0).color(r, g, b, a).next();
+            bufferBuilder.vertex(matrix, cx + innerRadius * cos, cy + innerRadius * sin, 0).color(r, g, b, a).next();
         }
-
         tessellator.draw();
         RenderSystem.disableBlend();
     }
 
     private String getCustomPageName(ItemStack book, int page) {
         NbtCompound nbt = book.getNbt();
-        if (nbt == null || !nbt.contains("page_names", NbtElement.COMPOUND_TYPE)) {
-            return null;
-        }
-
+        if (nbt == null || !nbt.contains("page_names", NbtElement.COMPOUND_TYPE)) return null;
         NbtCompound pageNames = nbt.getCompound("page_names");
         String key = String.valueOf(page);
-
-        if (!pageNames.contains(key, NbtElement.STRING_TYPE)) {
-            return null;
-        }
-
+        if (!pageNames.contains(key, NbtElement.STRING_TYPE)) return null;
         String json = pageNames.getString(key);
         try {
             Text text = Text.Serializer.fromJson(json);
@@ -475,24 +447,14 @@ public class SpellBookScreen extends Screen {
 
     private List<Text> getPatternTooltipLines(ItemStack book, int page) {
         NbtCompound nbt = book.getNbt();
-        if (nbt == null || !nbt.contains("pages", NbtElement.COMPOUND_TYPE)) {
-            return Collections.emptyList();
-        }
-
+        if (nbt == null || !nbt.contains("pages", NbtElement.COMPOUND_TYPE)) return Collections.emptyList();
         NbtCompound pages = nbt.getCompound("pages");
         String pageKey = String.valueOf(page);
-        if (!pages.contains(pageKey, NbtElement.COMPOUND_TYPE)) {
-            return Collections.emptyList();
-        }
-
+        if (!pages.contains(pageKey, NbtElement.COMPOUND_TYPE)) return Collections.emptyList();
         ItemStack fakeBook = book.copy();
         fakeBook.getOrCreateNbt().putInt("page_idx", page);
         List<Text> fullTooltip = fakeBook.getTooltip(client.player, TooltipContext.Default.BASIC);
-
-        if (fullTooltip.size() >= 3) {
-            return List.of(fullTooltip.get(2));
-        }
-
+        if (fullTooltip.size() >= 3) return List.of(fullTooltip.get(2));
         return Collections.emptyList();
     }
 
@@ -501,15 +463,7 @@ public class SpellBookScreen extends Screen {
         if (client != null && client.player != null) {
             PlayerInventory inventory = client.player.getInventory();
             int current = inventory.selectedSlot;
-            int newSlot;
-
-            // amount > 0 → прокрутка ВВЕРХ (предыдущий слот)
-            if (amount > 0) {
-                newSlot = current == 0 ? 8 : current - 1;
-            } else {
-                newSlot = current == 8 ? 0 : current + 1;
-            }
-
+            int newSlot = amount > 0 ? (current == 0 ? 8 : current - 1) : (current == 8 ? 0 : current + 1);
             inventory.selectedSlot = newSlot;
             return true;
         }
@@ -518,7 +472,6 @@ public class SpellBookScreen extends Screen {
 
     private static final class SectorAngles {
         final double start, mid, end;
-
         SectorAngles(int index) {
             double sectorWidth = 2 * Math.PI / 8;
             this.mid = -Math.PI / 2 + sectorWidth * index;
