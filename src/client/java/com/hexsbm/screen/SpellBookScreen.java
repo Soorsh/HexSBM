@@ -27,29 +27,16 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Круговое меню для выбора страницы в Hexcasting Spellbook.
- * Цветовая тема динамически подстраивается под выбранный пигмент игрока.
- * Градиент + кастомные иконки на обоих кольцах (страницы и группы).
- * Рамки удалены. Иконки групп сохраняются локально (без пакета).
- */
 public class SpellBookScreen extends Screen {
     private static final Identifier SPELLBOOK_ID = new Identifier("hexcasting", "spellbook");
+    private static final int GROUPS = 8, GROUP_SIZE = 8, TOTAL_PAGES = 64;
+    private static final int R1_IN = 30, R1_OUT = 60, R2_IN = 70, R2_OUT = 110;
 
-    private int pigmentColor = 0xFFFFFFFF; // по умолчанию белый
-
-    private int originalPageIdx = -1;
+    private int pigmentColor = 0xFFFFFFFF;
     private Hand activeHand = null;
     private boolean selectionConfirmed = false;
-
     private int centralGroup = 0;
-    private static final int GROUP_SIZE = 8;
-    private static final int TOTAL_PAGES = 64;
-
-    private static final int INNER_SEGMENT_START = 30;
-    private static final int INNER_SEGMENT_END   = 60;
-    private static final int OUTER_SEGMENT_START = 70;
-    private static final int OUTER_SEGMENT_END   = 110;
+    private int originalPageIdx = -1;
 
     public SpellBookScreen() {
         super(Text.empty());
@@ -57,51 +44,44 @@ public class SpellBookScreen extends Screen {
 
     @Override
     public void init() {
-        super.init();
-
         if (client == null || client.player == null) {
             close();
             return;
         }
 
-        ClientPlayerEntity player = client.player;
-
-        // === Получаем цвет пигмента из NBT игрока ===
-        NbtCompound playerNbt = player.writeNbt(new NbtCompound());
-        NbtCompound cc = playerNbt.getCompound("cardinal_components");
+        ClientPlayerEntity p = client.player;
+        NbtCompound nbt = p.writeNbt(new NbtCompound());
+        NbtCompound cc = nbt.getCompound("cardinal_components");
         if (cc.contains("hexcasting:favored_pigment", 10)) {
             NbtCompound pigment = cc.getCompound("hexcasting:favored_pigment");
             if (pigment.contains("pigment", 10)) {
-                String pigmentId = pigment.getCompound("pigment").getCompound("stack").getString("id");
-                this.pigmentColor = PigmentColorRegistry.getColor(pigmentId);
+                String id = pigment.getCompound("pigment").getCompound("stack").getString("id");
+                pigmentColor = PigmentColorRegistry.getColor(id);
             }
         }
 
-        // === Определяем, какая книга открыта ===
-        ItemStack main = player.getMainHandStack();
-        ItemStack off = player.getOffHandStack();
-        ItemStack currentBook;
+        ItemStack main = p.getMainHandStack();
+        ItemStack off = p.getOffHandStack();
 
         if (!main.isEmpty() && Registries.ITEM.getId(main.getItem()).equals(SPELLBOOK_ID)) {
-            currentBook = main;
             activeHand = Hand.MAIN_HAND;
+            originalPageIdx = getBookPage(main);
         } else if (!off.isEmpty() && Registries.ITEM.getId(off.getItem()).equals(SPELLBOOK_ID)) {
-            currentBook = off;
             activeHand = Hand.OFF_HAND;
+            originalPageIdx = getBookPage(off);
         } else {
             close();
             return;
         }
 
-        NbtCompound nbt = currentBook.getNbt();
-        this.originalPageIdx = (nbt != null && nbt.contains("page_idx", NbtElement.INT_TYPE))
-            ? nbt.getInt("page_idx")
-            : 1;
-
-        this.selectionConfirmed = false;
-        if (this.originalPageIdx != -1) {
-            this.centralGroup = Math.max(0, Math.min(7, (this.originalPageIdx - 1) / GROUP_SIZE));
+        if (originalPageIdx != -1) {
+            centralGroup = Math.max(0, Math.min(7, (originalPageIdx - 1) / GROUP_SIZE));
         }
+    }
+
+    private int getBookPage(ItemStack book) {
+        NbtCompound nbt = book.getNbt();
+        return nbt != null && nbt.contains("page_idx", NbtElement.INT_TYPE) ? nbt.getInt("page_idx") : 1;
     }
 
     @Override
@@ -110,192 +90,72 @@ public class SpellBookScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void render(DrawContext ctx, int mx, int my, float delta) {
         if (client == null || client.player == null) {
             close();
             return;
         }
 
-        ItemStack currentBook = getCurrentBook();
-        int currentPageIdx = 1;
-        if (!currentBook.isEmpty()) {
-            NbtCompound nbt = currentBook.getNbt();
-            if (nbt != null && nbt.contains("page_idx", NbtElement.INT_TYPE)) {
-                currentPageIdx = nbt.getInt("page_idx");
+        ItemStack book = getCurrentBook();
+        int currentPage = book.isEmpty() ? 1 : getBookPage(book);
+        int cx = width / 2, cy = height / 2;
+
+        for (int i = 0; i < GROUPS; i++) {
+            int page = centralGroup * GROUP_SIZE + i + 1;
+            if (page > TOTAL_PAGES) continue;
+
+            SectorAngles ang = new SectorAngles(i);
+            boolean cur = page == currentPage;
+            boolean hover = isPointInSegment(mx, my, cx, cy, R2_IN, R2_OUT, ang.start, ang.end);
+
+            int innerCol = cur ? mkColor(0x85, lighten(pigmentColor, 0.15f)) :
+                           hover ? mkColor(0x75, pigmentColor) :
+                                   mkColor(0x65, darken(pigmentColor, 0.1f));
+            int outerCol = cur ? mkColor(0xA0, lighten(pigmentColor, 0.25f)) :
+                           hover ? mkColor(0x85, lighten(pigmentColor, 0.15f)) :
+                                   mkColor(0x75, pigmentColor);
+
+            fillSegment(ctx, cx, cy, R2_IN, R2_OUT, ang.start, ang.end, innerCol, outerCol);
+
+            int x = (int)(cx + (R2_IN + R2_OUT) / 2.0 * Math.cos(ang.mid));
+            int y = (int)(cy + (R2_IN + R2_OUT) / 2.0 * Math.sin(ang.mid));
+            ItemStack icon = getPageIcon(book, page);
+            if (!icon.isEmpty()) ctx.drawItem(icon, x - 8, y - 8);
+
+            if (hover) {
+                List<Text> tip = new ArrayList<>();
+                String name = getCustomPageName(book, page);
+                tip.add(Text.literal(name != null && !name.isEmpty() ? name : "Page " + page));
+                tip.addAll(getPatternTooltip(book, page));
+                ctx.drawTooltip(textRenderer, tip, mx, my);
             }
         }
 
-        renderRadialUI(context, mouseX, mouseY, currentBook, currentPageIdx);
-    }
+        for (int i = 0; i < GROUPS; i++) {
+            SectorAngles ang = new SectorAngles(i);
+            boolean cur = i == centralGroup;
+            boolean hover = isPointInSegment(mx, my, cx, cy, R1_IN, R1_OUT, ang.start, ang.end);
 
-    private void renderRadialUI(DrawContext context, int mouseX, int mouseY, ItemStack currentBook, int currentPageIdx) {
-        int cx = this.width / 2;
-        int cy = this.height / 2;
+            int innerCol = cur ? mkColor(0x80, pigmentColor) :
+                           hover ? mkColor(0x65, darken(pigmentColor, 0.1f)) :
+                                   mkColor(0x55, darken(pigmentColor, 0.25f));
+            int outerCol = cur ? mkColor(0x90, lighten(pigmentColor, 0.2f)) :
+                           hover ? mkColor(0x75, pigmentColor) :
+                                   mkColor(0x65, darken(pigmentColor, 0.1f));
 
-        // === Внешние секторы: страницы ===
-        for (int i = 0; i < 8; i++) {
-            int pageIndex = centralGroup * GROUP_SIZE + i + 1;
-            if (pageIndex > TOTAL_PAGES) continue;
+            fillSegment(ctx, cx, cy, R1_IN, R1_OUT, ang.start, ang.end, innerCol, outerCol);
 
-            SectorAngles angles = new SectorAngles(i);
-            boolean isCurrent = (pageIndex == currentPageIdx);
-            boolean isHovered = isPointInCircularSegment(mouseX, mouseY, cx, cy,
-                    OUTER_SEGMENT_START, OUTER_SEGMENT_END, angles.start, angles.end);
-
-            // База: мягкий градиент, почти плоский
-            int baseInner  = (0x65 << 24) | (darken(pigmentColor, 0.1f) & 0x00FFFFFF);
-            int baseOuter  = (0x75 << 24) | (pigmentColor & 0x00FFFFFF);
-
-            // Ховер: чуть светлее, но не "вспышка"
-            int hoverInner = (0x75 << 24) | (pigmentColor & 0x00FFFFFF);
-            int hoverOuter = (0x85 << 24) | (lighten(pigmentColor, 0.15f) & 0x00FFFFFF);
-
-            // Выбрано: акцент, но в рамках тональности
-            int currInner  = (0x85 << 24) | (lighten(pigmentColor, 0.15f) & 0x00FFFFFF);
-            int currOuter  = (0xA0 << 24) | (lighten(pigmentColor, 0.25f) & 0x00FFFFFF);
-
-            int innerCol = isCurrent ? currInner : isHovered ? hoverInner : baseInner;
-            int outerCol = isCurrent ? currOuter : isHovered ? hoverOuter : baseOuter;
-
-            fillCircularSegmentWithGradient(context, cx, cy,
-                OUTER_SEGMENT_START, OUTER_SEGMENT_END,
-                angles.start, angles.end,
-                innerCol, outerCol);
-
-            // === Иконка страницы ===
-            int textX = (int)(cx + (OUTER_SEGMENT_START + OUTER_SEGMENT_END) / 2.0 * Math.cos(angles.mid));
-            int textY = (int)(cy + (OUTER_SEGMENT_START + OUTER_SEGMENT_END) / 2.0 * Math.sin(angles.mid));
-
-            ItemStack icon = getPageIcon(currentBook, pageIndex);
-            if (!icon.isEmpty()) {
-                context.drawItem(icon, textX - 8, textY - 8);
-            }
-
-            // Тултип при наведении
-            if (isHovered) {
-                String customName = getCustomPageName(currentBook, pageIndex);
-                List<Text> patterns = getPatternTooltipLines(currentBook, pageIndex);
-                List<Text> tooltip = new ArrayList<>();
-
-                if (customName != null && !customName.isEmpty()) {
-                    tooltip.add(Text.literal(customName));
-                } else {
-                    tooltip.add(Text.literal("Page " + pageIndex));
-                }
-                tooltip.addAll(patterns);
-
-                if (!tooltip.isEmpty()) {
-                    context.drawTooltip(textRenderer, tooltip, mouseX, mouseY);
-                }
-            }
-        }
-
-        // === Внутренние секторы: группы ===
-        for (int i = 0; i < 8; i++) {
-            SectorAngles angles = new SectorAngles(i);
-            boolean isCurrentGroup = (i == centralGroup);
-            boolean isHovered = isPointInCircularSegment(mouseX, mouseY, cx, cy,
-                    INNER_SEGMENT_START, INNER_SEGMENT_END, angles.start, angles.end);
-
-            int baseInnerG  = (0x55 << 24) | (darken(pigmentColor, 0.25f) & 0x00FFFFFF);
-            int baseOuterG  = (0x65 << 24) | (darken(pigmentColor, 0.1f) & 0x00FFFFFF);
-
-            int hoverInnerG = (0x65 << 24) | (darken(pigmentColor, 0.1f) & 0x00FFFFFF);
-            int hoverOuterG = (0x75 << 24) | (pigmentColor & 0x00FFFFFF);
-
-            int currInnerG  = (0x80 << 24) | (pigmentColor & 0x00FFFFFF);
-            int currOuterG  = (0x90 << 24) | (lighten(pigmentColor, 0.2f) & 0x00FFFFFF);
-
-            int innerColG = isCurrentGroup ? currInnerG : isHovered ? hoverInnerG : baseInnerG;
-            int outerColG = isCurrentGroup ? currOuterG : isHovered ? hoverOuterG : baseOuterG;
-
-            fillCircularSegmentWithGradient(context, cx, cy,
-                INNER_SEGMENT_START, INNER_SEGMENT_END,
-                angles.start, angles.end,
-                innerColG, outerColG);
-
-            // === Иконка группы (из NBT) ===
-            ItemStack groupIcon = getGroupIcon(currentBook, i);
-            if (!groupIcon.isEmpty()) {
-                int iconRadius = (INNER_SEGMENT_START + INNER_SEGMENT_END) / 2;
-                int iconX = (int)(cx + iconRadius * Math.cos(angles.mid));
-                int iconY = (int)(cy + iconRadius * Math.sin(angles.mid));
-                context.drawItem(groupIcon, iconX - 8, iconY - 8);
-            }
-
-            // Тултип для группы (опционально)
-            if (isHovered && !groupIcon.isEmpty()) {
-                context.drawTooltip(textRenderer, groupIcon.getTooltip(client.player, TooltipContext.Default.BASIC), mouseX, mouseY);
-            }
+            int r = (R1_IN + R1_OUT) / 2;
+            int x = (int)(cx + r * Math.cos(ang.mid));
+            int y = (int)(cy + r * Math.sin(ang.mid));
+            ItemStack icon = getGroupIcon(book, i);
+            if (!icon.isEmpty()) ctx.drawItem(icon, x - 8, y - 8);
         }
     }
 
-    // === Градиентная заливка сегмента ===
-    private void fillCircularSegmentWithGradient(
-        DrawContext context,
-        int cx, int cy,
-        int innerRadius, int outerRadius,
-        double startAngle, double endAngle,
-        int innerColor, int outerColor
-    ) {
-        Matrix4f matrix = context.getMatrices().peek().getPositionMatrix();
-        Tessellator tessellator = Tessellator.getInstance();
-        var bufferBuilder = tessellator.getBuffer();
-
-        float ir = (innerColor >> 16 & 0xFF) / 255f;
-        float ig = (innerColor >> 8 & 0xFF) / 255f;
-        float ib = (innerColor & 0xFF) / 255f;
-        float ia = (innerColor >> 24 & 0xFF) / 255f;
-
-        float or = (outerColor >> 16 & 0xFF) / 255f;
-        float og = (outerColor >> 8 & 0xFF) / 255f;
-        float ob = (outerColor & 0xFF) / 255f;
-        float oa = (outerColor >> 24 & 0xFF) / 255f;
-
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-
-        int segments = Math.max(4, (int) ((endAngle - startAngle) / (Math.PI / 30)));
-
-        bufferBuilder.begin(VertexFormat.DrawMode.TRIANGLE_STRIP, VertexFormats.POSITION_COLOR);
-        for (int i = 0; i <= segments; i++) {
-            double angle = MathHelper.lerp((double) i / segments, startAngle, endAngle);
-            float cos = (float) Math.cos(angle);
-            float sin = (float) Math.sin(angle);
-
-            bufferBuilder.vertex(matrix, cx + outerRadius * cos, cy + outerRadius * sin, 0)
-                .color(or, og, ob, oa).next();
-            bufferBuilder.vertex(matrix, cx + innerRadius * cos, cy + innerRadius * sin, 0)
-                .color(ir, ig, ib, ia).next();
-        }
-        tessellator.draw();
-        RenderSystem.disableBlend();
+    private int mkColor(int alpha, int rgb) {
+        return (alpha << 24) | (rgb & 0x00FFFFFF);
     }
-
-    // === Вспомогательные методы для работы с цветом ===
-
-    private int lighten(int color, float factor) {
-        float r = ((color >> 16) & 0xFF) / 255f;
-        float g = ((color >> 8) & 0xFF) / 255f;
-        float b = (color & 0xFF) / 255f;
-        r = Math.min(1, r + factor);
-        g = Math.min(1, g + factor);
-        b = Math.min(1, b + factor);
-        return (color & 0xFF000000) | ((int)(r * 255) << 16) | ((int)(g * 255) << 8) | (int)(b * 255);
-    }
-
-    private int darken(int color, float factor) {
-        float r = ((color >> 16) & 0xFF) / 255f;
-        float g = ((color >> 8) & 0xFF) / 255f;
-        float b = (color & 0xFF) / 255f;
-        r = Math.max(0, r - factor);
-        g = Math.max(0, g - factor);
-        b = Math.max(0, b - factor);
-        return (color & 0xFF000000) | ((int)(r * 255) << 16) | ((int)(g * 255) << 8) | (int)(b * 255);
-    }
-
-    // === Остальные методы (без изменений) ===
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -304,271 +164,246 @@ public class SpellBookScreen extends Screen {
             return true;
         }
 
-        int cx = this.width / 2;
-        int cy = this.height / 2;
-        int mx = (int) mouseX;
-        int my = (int) mouseY;
+        int cx = width / 2, cy = height / 2;
+        int mx = (int) mouseX, my = (int) mouseY;
+
+        if (button == 0) {
+            for (int i = 0; i < GROUPS; i++) {
+                SectorAngles ang = new SectorAngles(i);
+                if (isPointInSegment(mx, my, cx, cy, R1_IN, R1_OUT, ang.start, ang.end)) {
+                    centralGroup = i;
+                    return true;
+                }
+            }
+            for (int i = 0; i < GROUPS; i++) {
+                int page = centralGroup * GROUP_SIZE + i + 1;
+                if (page > TOTAL_PAGES) continue;
+                SectorAngles ang = new SectorAngles(i);
+                if (isPointInSegment(mx, my, cx, cy, R2_IN, R2_OUT, ang.start, ang.end)) {
+                    selectionConfirmed = true;
+                    com.hexsbm.HexSBMClient.sendChangeSpellbookPage(activeHand, page);
+                    close();
+                    return true;
+                }
+            }
+            close();
+            return true;
+        }
 
         if (button == 1) {
-            return handleRightClick(mx, my, cx, cy);
-        } else if (button == 0) {
-            return handleLeftClick(mx, my, cx, cy);
+            ItemStack book = getCurrentBook();
+            if (book.isEmpty()) return false;
+
+            for (int i = 0; i < GROUPS; i++) {
+                SectorAngles ang = new SectorAngles(i);
+                if (isPointInSegment(mx, my, cx, cy, R1_IN, R1_OUT, ang.start, ang.end)) {
+                    updateGroupIcon(book, i);
+                    return true;
+                }
+            }
+            for (int i = 0; i < GROUPS; i++) {
+                int page = centralGroup * GROUP_SIZE + i + 1;
+                if (page > TOTAL_PAGES) continue;
+                SectorAngles ang = new SectorAngles(i);
+                if (isPointInSegment(mx, my, cx, cy, R2_IN, R2_OUT, ang.start, ang.end)) {
+                    updatePageIcon(book, page);
+                    return true;
+                }
+            }
         }
 
-        close();
         return true;
     }
 
-    private boolean handleRightClick(int mx, int my, int cx, int cy) {
-        ItemStack currentBook = getCurrentBook();
-        if (currentBook.isEmpty()) return false;
-
-        // === Сначала проверяем внутренние секторы (группы) ===
-        for (int i = 0; i < 8; i++) {
-            SectorAngles angles = new SectorAngles(i);
-            if (isPointInCircularSegment(mx, my, cx, cy, INNER_SEGMENT_START, INNER_SEGMENT_END, angles.start, angles.end)) {
-                ClientPlayerEntity player = client.player;
-                int selectedSlot = player.getInventory().selectedSlot;
-                ItemStack rawSource = player.getInventory().getStack(selectedSlot);
-                ItemStack iconSource = makeIconOnly(rawSource);
-
-                NbtCompound bookNbt = currentBook.getOrCreateNbt();
-                NbtCompound groupIcons = bookNbt.getCompound("group_icons");
-
-                if (!iconSource.isEmpty()) {
-                    NbtCompound iconNbt = new NbtCompound();
-                    iconSource.writeNbt(iconNbt);
-                    groupIcons.put(String.valueOf(i), iconNbt);
-                } else {
-                    groupIcons.remove(String.valueOf(i));
-                }
-
-                bookNbt.put("group_icons", groupIcons);
-                com.hexsbm.HexSBMClient.sendUpdateGroupIcon(activeHand, i, iconSource);
-                return true;
-            }
-        }
-
-        // === Потом внешние секторы (страницы) ===
-        for (int i = 0; i < 8; i++) {
-            int pageIndex = centralGroup * GROUP_SIZE + i + 1;
-            if (pageIndex > TOTAL_PAGES) continue;
-
-            SectorAngles angles = new SectorAngles(i);
-            if (isPointInCircularSegment(mx, my, cx, cy, OUTER_SEGMENT_START, OUTER_SEGMENT_END, angles.start, angles.end)) {
-                ClientPlayerEntity player = client.player;
-                int selectedSlot = player.getInventory().selectedSlot;
-                ItemStack rawSource = player.getInventory().getStack(selectedSlot);
-                ItemStack iconSource = makeIconOnly(rawSource);
-
-                NbtCompound bookNbt = currentBook.getOrCreateNbt();
-                NbtCompound pageIcons = bookNbt.getCompound("page_icons");
-
-                if (!iconSource.isEmpty()) {
-                    NbtCompound iconNbt = new NbtCompound();
-                    iconSource.writeNbt(iconNbt);
-                    pageIcons.put(String.valueOf(pageIndex), iconNbt);
-                } else {
-                    pageIcons.remove(String.valueOf(pageIndex));
-                }
-
-                bookNbt.put("page_icons", pageIcons);
-                com.hexsbm.HexSBMClient.sendUpdatePageIcon(activeHand, pageIndex, iconSource);
-                return true;
-            }
-        }
-        return false;
+    private void updateGroupIcon(ItemStack book, int idx) {
+        ClientPlayerEntity p = client.player;
+        ItemStack src = makeIconOnly(p.getInventory().getStack(p.getInventory().selectedSlot));
+        updateIcon(book, "group_icons", idx, src);
+        com.hexsbm.HexSBMClient.sendUpdateGroupIcon(activeHand, idx, src);
     }
 
-    private boolean handleLeftClick(int mx, int my, int cx, int cy) {
-        for (int i = 0; i < 8; i++) {
-            SectorAngles angles = new SectorAngles(i);
-            if (isPointInCircularSegment(mx, my, cx, cy, INNER_SEGMENT_START, INNER_SEGMENT_END, angles.start, angles.end)) {
-                this.centralGroup = i;
-                return true;
-            }
+    private void updatePageIcon(ItemStack book, int page) {
+        ClientPlayerEntity p = client.player;
+        ItemStack src = makeIconOnly(p.getInventory().getStack(p.getInventory().selectedSlot));
+        updateIcon(book, "page_icons", page, src);
+        com.hexsbm.HexSBMClient.sendUpdatePageIcon(activeHand, page, src);
+    }
+
+    private void updateIcon(ItemStack book, String key, int idx, ItemStack icon) {
+        NbtCompound nbt = book.getOrCreateNbt();
+        NbtCompound map = nbt.getCompound(key);
+        String s = String.valueOf(idx);
+        if (!icon.isEmpty()) {
+            map.put(s, icon.writeNbt(new NbtCompound()));
+        } else {
+            map.remove(s);
         }
-
-        for (int i = 0; i < 8; i++) {
-            int pageIndex = centralGroup * GROUP_SIZE + i + 1;
-            if (pageIndex > TOTAL_PAGES) continue;
-
-            SectorAngles angles = new SectorAngles(i);
-            if (isPointInCircularSegment(mx, my, cx, cy, OUTER_SEGMENT_START, OUTER_SEGMENT_END, angles.start, angles.end)) {
-                selectionConfirmed = true;
-                com.hexsbm.HexSBMClient.sendChangeSpellbookPage(activeHand, pageIndex);
-                close();
-                return true;
-            }
-        }
-
-        close();
-        return true;
+        nbt.put(key, map);
     }
 
     @Override
     public void close() {
-        if (!selectionConfirmed) {
-            restoreOriginalPage();
-        }
-        if (client != null) {
-            client.setScreen(null);
-        }
-    }
-
-    private void restoreOriginalPage() {
-        if (client == null || client.player == null || activeHand == null || originalPageIdx == -1) {
-            return;
-        }
-
-        ItemStack handStack = client.player.getStackInHand(activeHand);
-        if (!handStack.isEmpty() && Registries.ITEM.getId(handStack.getItem()).equals(SPELLBOOK_ID)) {
-            NbtCompound nbt = handStack.getOrCreateNbt();
-            nbt.putInt("page_idx", originalPageIdx);
-        }
+        if (client != null) client.setScreen(null);
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(int keyCode, int scanCode, int mods) {
         if (keyCode == GLFW.GLFW_KEY_V || keyCode == GLFW.GLFW_KEY_ESCAPE) {
             close();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(keyCode, scanCode, mods);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
+        if (client == null || client.player == null || activeHand == null) {
+            return false;
+        }
+        if (activeHand == Hand.OFF_HAND) {
+            PlayerInventory inv = client.player.getInventory();
+            int current = inv.selectedSlot;
+            int newSlot = amount > 0 ? (current == 0 ? 8 : current - 1) : (current == 8 ? 0 : current + 1);
+            inv.selectedSlot = newSlot;
+            return true;
+        }
+        return false;
     }
 
     private ItemStack getCurrentBook() {
-        if (client == null || client.player == null) return ItemStack.EMPTY;
-        ClientPlayerEntity player = client.player;
-        ItemStack main = player.getMainHandStack();
-        ItemStack off = player.getOffHandStack();
-
-        if (!main.isEmpty() && Registries.ITEM.getId(main.getItem()).equals(SPELLBOOK_ID)) return main;
-        if (!off.isEmpty() && Registries.ITEM.getId(off.getItem()).equals(SPELLBOOK_ID)) return off;
+        ClientPlayerEntity p = client.player;
+        if (!p.getMainHandStack().isEmpty() && Registries.ITEM.getId(p.getMainHandStack().getItem()).equals(SPELLBOOK_ID))
+            return p.getMainHandStack();
+        if (!p.getOffHandStack().isEmpty() && Registries.ITEM.getId(p.getOffHandStack().getItem()).equals(SPELLBOOK_ID))
+            return p.getOffHandStack();
         return ItemStack.EMPTY;
     }
 
-    private ItemStack getPageIcon(ItemStack book, int pageIndex) {
+    private ItemStack getPageIcon(ItemStack book, int page) {
+        return getIcon(book, "page_icons", page);
+    }
+
+    private ItemStack getGroupIcon(ItemStack book, int group) {
+        return getIcon(book, "group_icons", group);
+    }
+
+    private ItemStack getIcon(ItemStack book, String key, int idx) {
         NbtCompound nbt = book.getNbt();
-        if (nbt == null || !nbt.contains("page_icons", NbtElement.COMPOUND_TYPE)) return ItemStack.EMPTY;
-
-        NbtCompound pageIcons = nbt.getCompound("page_icons");
-        String key = String.valueOf(pageIndex);
-        if (!pageIcons.contains(key, NbtElement.COMPOUND_TYPE)) return ItemStack.EMPTY;
-
+        if (nbt == null || !nbt.contains(key, NbtElement.COMPOUND_TYPE)) return ItemStack.EMPTY;
+        NbtCompound map = nbt.getCompound(key);
+        String s = String.valueOf(idx);
+        if (!map.contains(s, NbtElement.COMPOUND_TYPE)) return ItemStack.EMPTY;
         try {
-            return ItemStack.fromNbt(pageIcons.getCompound(key));
+            return ItemStack.fromNbt(map.getCompound(s));
         } catch (Exception e) {
             return ItemStack.EMPTY;
         }
     }
 
-    private ItemStack getGroupIcon(ItemStack book, int groupIndex) {
-        NbtCompound nbt = book.getNbt();
-        if (nbt == null || !nbt.contains("group_icons", NbtElement.COMPOUND_TYPE)) return ItemStack.EMPTY;
-
-        NbtCompound groupIcons = nbt.getCompound("group_icons");
-        String key = String.valueOf(groupIndex);
-        if (!groupIcons.contains(key, NbtElement.COMPOUND_TYPE)) return ItemStack.EMPTY;
-
-        try {
-            return ItemStack.fromNbt(groupIcons.getCompound(key));
-        } catch (Exception e) {
-            return ItemStack.EMPTY;
-        }
-    }
-
-    private static final Set<String> VISUAL_NBT_TAGS = Set.of(
+    private static final Set<String> VISUAL_TAGS = Set.of(
         "Enchantments", "display", "CustomPotionColor", "Potion", "SkullOwner", "EntityTag",
         "hexcasting:pattern_data", "hexcasting:amulet_state", "hexcasting:op_code", "op_id"
     );
 
-    private static ItemStack makeIconOnly(ItemStack original) {
-        if (original.isEmpty()) return ItemStack.EMPTY;
-        ItemStack icon = new ItemStack(original.getItem(), 1);
-        NbtCompound originalTag = original.getNbt();
-        if (originalTag != null) {
-            NbtCompound cleanTag = new NbtCompound();
-            for (String key : VISUAL_NBT_TAGS) {
-                if (originalTag.contains(key, NbtElement.COMPOUND_TYPE) ||
-                    originalTag.contains(key, NbtElement.LIST_TYPE) ||
-                    originalTag.contains(key, NbtElement.STRING_TYPE) ||
-                    originalTag.contains(key, NbtElement.INT_TYPE)) {
-                    cleanTag.put(key, originalTag.get(key).copy());
-                }
+    private static ItemStack makeIconOnly(ItemStack src) {
+        if (src.isEmpty()) return ItemStack.EMPTY;
+        ItemStack icon = new ItemStack(src.getItem(), 1);
+        NbtCompound tag = src.getNbt();
+        if (tag != null) {
+            NbtCompound clean = new NbtCompound();
+            for (String k : VISUAL_TAGS) {
+                if (tag.contains(k)) clean.put(k, tag.get(k).copy());
             }
-            if (!cleanTag.isEmpty()) icon.setNbt(cleanTag);
+            if (!clean.isEmpty()) icon.setNbt(clean);
         }
         return icon;
     }
 
-    private boolean isPointInCircularSegment(int px, int py, int cx, int cy,
-                                           int innerRadius, int outerRadius,
-                                           double startAngle, double endAngle) {
-        double dx = px - cx;
-        double dy = py - cy;
-        double distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance < innerRadius || distance > outerRadius) return false;
+    private boolean isPointInSegment(int px, int py, int cx, int cy, int rIn, int rOut, double a1, double a2) {
+        double dx = px - cx, dy = py - cy;
+        double dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < rIn || dist > rOut) return false;
 
         double angle = Math.atan2(dy, dx);
         if (angle < 0) angle += 2 * Math.PI;
-        double normStart = startAngle < 0 ? startAngle + 2 * Math.PI : startAngle;
-        double normEnd = endAngle < 0 ? endAngle + 2 * Math.PI : endAngle;
+        double s = a1 < 0 ? a1 + 2 * Math.PI : a1;
+        double e = a2 < 0 ? a2 + 2 * Math.PI : a2;
 
-        if (normStart < normEnd) {
-            return angle >= normStart && angle <= normEnd;
-        } else {
-            return angle >= normStart || angle <= normEnd;
-        }
+        return s < e ? (angle >= s && angle <= e) : (angle >= s || angle <= e);
     }
-    
+
     private String getCustomPageName(ItemStack book, int page) {
         NbtCompound nbt = book.getNbt();
         if (nbt == null || !nbt.contains("page_names", NbtElement.COMPOUND_TYPE)) return null;
-        NbtCompound pageNames = nbt.getCompound("page_names");
-        String key = String.valueOf(page);
-        if (!pageNames.contains(key, NbtElement.STRING_TYPE)) return null;
-        String json = pageNames.getString(key);
+        String json = nbt.getCompound("page_names").getString(String.valueOf(page));
         try {
-            Text text = Text.Serializer.fromJson(json);
-            return text != null ? text.getString() : null;
+            Text t = Text.Serializer.fromJson(json);
+            return t != null ? t.getString() : null;
         } catch (Exception e) {
             return null;
         }
     }
 
-    private List<Text> getPatternTooltipLines(ItemStack book, int page) {
+    private List<Text> getPatternTooltip(ItemStack book, int page) {
         NbtCompound nbt = book.getNbt();
         if (nbt == null || !nbt.contains("pages", NbtElement.COMPOUND_TYPE)) return Collections.emptyList();
         NbtCompound pages = nbt.getCompound("pages");
-        String pageKey = String.valueOf(page);
-        if (!pages.contains(pageKey, NbtElement.COMPOUND_TYPE)) return Collections.emptyList();
-        ItemStack fakeBook = book.copy();
-        fakeBook.getOrCreateNbt().putInt("page_idx", page);
-        List<Text> fullTooltip = fakeBook.getTooltip(client.player, TooltipContext.Default.BASIC);
-        if (fullTooltip.size() >= 3) return List.of(fullTooltip.get(2));
-        return Collections.emptyList();
+        if (!pages.contains(String.valueOf(page), NbtElement.COMPOUND_TYPE)) return Collections.emptyList();
+
+        ItemStack fake = book.copy();
+        fake.getOrCreateNbt().putInt("page_idx", page);
+        List<Text> tt = fake.getTooltip(client.player, TooltipContext.Default.BASIC);
+        return tt.size() >= 3 ? List.of(tt.get(2)) : Collections.emptyList();
     }
 
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
-        if (client != null && client.player != null) {
-            PlayerInventory inventory = client.player.getInventory();
-            int current = inventory.selectedSlot;
-            int newSlot = amount > 0 ? (current == 0 ? 8 : current - 1) : (current == 8 ? 0 : current + 1);
-            inventory.selectedSlot = newSlot;
-            return true;
+    private void fillSegment(DrawContext ctx, int cx, int cy, int rIn, int rOut,
+                             double a1, double a2, int cIn, int cOut) {
+        Matrix4f m = ctx.getMatrices().peek().getPositionMatrix();
+        Tessellator t = Tessellator.getInstance();
+        var b = t.getBuffer();
+
+        float ir = ((cIn >> 16) & 0xFF) / 255f, ig = ((cIn >> 8) & 0xFF) / 255f, ib = (cIn & 0xFF) / 255f, ia = ((cIn >> 24) & 0xFF) / 255f;
+        float or = ((cOut >> 16) & 0xFF) / 255f, og = ((cOut >> 8) & 0xFF) / 255f, ob = (cOut & 0xFF) / 255f, oa = ((cOut >> 24) & 0xFF) / 255f;
+
+        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
+        int seg = Math.max(4, (int) ((a2 - a1) / (Math.PI / 30)));
+        b.begin(VertexFormat.DrawMode.TRIANGLE_STRIP, VertexFormats.POSITION_COLOR);
+
+        for (int i = 0; i <= seg; i++) {
+            double a = MathHelper.lerp((double) i / seg, a1, a2);
+            float cos = (float) Math.cos(a), sin = (float) Math.sin(a);
+            b.vertex(m, cx + rOut * cos, cy + rOut * sin, 0).color(or, og, ob, oa).next();
+            b.vertex(m, cx + rIn * cos, cy + rIn * sin, 0).color(ir, ig, ib, ia).next();
         }
-        return false;
+
+        t.draw();
+        RenderSystem.disableBlend();
     }
 
-    private static final class SectorAngles {
+    private int lighten(int color, float f) {
+        float r = Math.min(1, ((color >> 16) & 0xFF) / 255f + f);
+        float g = Math.min(1, ((color >> 8) & 0xFF) / 255f + f);
+        float b = Math.min(1, (color & 0xFF) / 255f + f);
+        return (color & 0xFF000000) | ((int)(r * 255) << 16) | ((int)(g * 255) << 8) | (int)(b * 255);
+    }
+
+    private int darken(int color, float f) {
+        float r = Math.max(0, ((color >> 16) & 0xFF) / 255f - f);
+        float g = Math.max(0, ((color >> 8) & 0xFF) / 255f - f);
+        float b = Math.max(0, (color & 0xFF) / 255f - f);
+        return (color & 0xFF000000) | ((int)(r * 255) << 16) | ((int)(g * 255) << 8) | (int)(b * 255);
+    }
+
+    private static class SectorAngles {
         final double start, mid, end;
-        SectorAngles(int index) {
-            double sectorWidth = 2 * Math.PI / 8;
-            this.mid = -Math.PI / 2 + sectorWidth * index;
-            this.start = mid - sectorWidth / 2;
-            this.end = mid + sectorWidth / 2;
+        SectorAngles(int i) {
+            double w = 2 * Math.PI / GROUPS;
+            mid = -Math.PI / 2 + w * i;
+            start = mid - w / 2;
+            end = mid + w / 2;
         }
     }
 }

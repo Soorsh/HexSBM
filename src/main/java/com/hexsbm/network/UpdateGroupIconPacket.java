@@ -4,16 +4,18 @@ import com.hexsbm.HexSBM;
 import net.fabricmc.fabric.api.networking.v1.PacketSender;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.PacketByteBuf;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.registry.Registries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayNetworkHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Hand;
+import net.minecraft.util.Identifier;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.Registries;
 
 public class UpdateGroupIconPacket {
-    private static final net.minecraft.util.Identifier ID = HexSBM.id("update_group_icon");
+    private static final Identifier ID = HexSBM.id("update_group_icon");
+    private static final Identifier SPELLBOOK_ID = new Identifier("hexcasting", "spellbook");
 
     public static void register() {
         ServerPlayNetworking.registerGlobalReceiver(ID, UpdateGroupIconPacket::handle);
@@ -24,40 +26,33 @@ public class UpdateGroupIconPacket {
         ServerPlayerEntity player,
         ServerPlayNetworkHandler handler,
         PacketByteBuf buf,
-        PacketSender responseSender
+        PacketSender sender
     ) {
         try {
             Hand hand = buf.readEnumConstant(Hand.class);
-            int groupIndex = buf.readInt();
-            ItemStack iconStack = buf.readItemStack();
+            int group = buf.readInt();
+            ItemStack icon = buf.readItemStack();
 
-            // Валидация: группы 0–7
-            if (groupIndex < 0 || groupIndex > 7) return;
+            if (group < 0 || group > 7) return;
 
             server.execute(() -> {
-                ItemStack handStack = player.getStackInHand(hand);
-                if (handStack.isEmpty()) return;
+                ItemStack stack = player.getStackInHand(hand);
+                if (stack.isEmpty() || !Registries.ITEM.getId(stack.getItem()).equals(SPELLBOOK_ID)) return;
 
-                if (!Registries.ITEM.getId(handStack.getItem()).equals(new net.minecraft.util.Identifier("hexcasting", "spellbook"))) {
-                    return;
-                }
+                NbtCompound nbt = stack.getOrCreateNbt();
+                NbtCompound icons = nbt.getCompound("group_icons");
+                String key = String.valueOf(group);
 
-                NbtCompound nbt = handStack.getOrCreateNbt();
-                NbtCompound groupIcons = nbt.getCompound("group_icons");
-
-                String groupKey = String.valueOf(groupIndex);
-                if (iconStack.isEmpty()) {
-                    groupIcons.remove(groupKey);
+                if (icon.isEmpty()) {
+                    icons.remove(key);
                 } else {
-                    NbtCompound iconNbt = new NbtCompound();
-                    iconStack.writeNbt(iconNbt);
-                    groupIcons.put(groupKey, iconNbt);
+                    icons.put(key, icon.writeNbt(new NbtCompound()));
                 }
 
-                nbt.put("group_icons", groupIcons);
+                nbt.put("group_icons", icons);
             });
         } catch (Exception e) {
-            HexSBM.LOGGER.warn("Failed to handle UpdateGroupIconPacket", e);
+            HexSBM.LOGGER.warn("Bad UpdateGroupIconPacket from {}", player.getName().getString());
         }
     }
 }

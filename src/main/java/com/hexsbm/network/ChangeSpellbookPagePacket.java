@@ -17,7 +17,6 @@ import net.minecraft.item.ItemStack;
 public class ChangeSpellbookPagePacket {
     public static final Identifier ID = HexSBM.id("change_spellbook_page");
     private static final Identifier SPELLBOOK_ID = new Identifier("hexcasting", "spellbook");
-    private static final boolean DEBUG = false; // ← поставь true при отладке
 
     public static void register() {
         ServerPlayNetworking.registerGlobalReceiver(ID, ChangeSpellbookPagePacket::handle);
@@ -28,53 +27,33 @@ public class ChangeSpellbookPagePacket {
         ServerPlayerEntity player,
         ServerPlayNetworkHandler handler,
         PacketByteBuf buf,
-        PacketSender responseSender
+        PacketSender sender
     ) {
         Hand hand = buf.readEnumConstant(Hand.class);
-        int newPage = buf.readInt();
+        int page = buf.readInt();
 
-        // Валидация страницы
-        if (newPage < 1 || newPage > 64) {
-            HexSBM.LOGGER.warn("Отклонено: страница {} вне диапазона [1, 64]", newPage);
-            return;
-        }
+        if (page < 1 || page > 64) return;
 
         server.execute(() -> {
             ItemStack stack = player.getStackInHand(hand);
-            Identifier itemId = net.minecraft.registry.Registries.ITEM.getId(stack.getItem());
-
-            if (DEBUG) {
-                HexSBM.LOGGER.info("Пакет: игрок={}, рука={}, страница={}, предмет={}",
-                    player.getName().getString(), hand, newPage, itemId);
-            }
-
-            if (!itemId.equals(SPELLBOOK_ID)) {
-                HexSBM.LOGGER.warn("Отклонено: предмет не является spellbook ({}", itemId);
-                return;
-            }
+            if (!net.minecraft.registry.Registries.ITEM.getId(stack.getItem()).equals(SPELLBOOK_ID)) return;
 
             NbtCompound nbt = stack.getOrCreateNbt();
-            nbt.putInt("page_idx", newPage);
+            nbt.putInt("page_idx", page);
 
-            // Обновляем customName
-            Text pageName = null;
+            // Обновление custom name из page_names
+            Text name = null;
             if (nbt.contains("page_names", NbtElement.COMPOUND_TYPE)) {
-                NbtCompound pageNames = nbt.getCompound("page_names");
-                String key = String.valueOf(newPage);
-                if (pageNames.contains(key, NbtElement.STRING_TYPE)) {
-                    String json = pageNames.getString(key);
-                    if (json != null && !json.trim().isEmpty()) {
-                        try {
-                            pageName = Text.Serializer.fromJson(json);
-                        } catch (Exception e) {
-                            HexSBM.LOGGER.warn("Ошибка парсинга имени страницы {}: {}", newPage, e.getMessage());
-                        }
-                    }
+                String json = nbt.getCompound("page_names").getString(String.valueOf(page));
+                if (!json.isEmpty()) {
+                    try {
+                        name = Text.Serializer.fromJson(json);
+                    } catch (Exception ignored) {}
                 }
             }
 
-            if (pageName != null) {
-                stack.setCustomName(pageName);
+            if (name != null) {
+                stack.setCustomName(name);
             } else {
                 stack.removeCustomName();
             }
