@@ -108,12 +108,12 @@ public class SpellBookScreen extends Screen {
             boolean cur = page == currentPage;
             boolean hover = isPointInSegment(mx, my, cx, cy, R2_IN, R2_OUT, ang.start, ang.end);
 
-            int innerCol = cur ? mkColor(0x85, lighten(pigmentColor, 0.15f)) :
-                           hover ? mkColor(0x75, pigmentColor) :
-                                   mkColor(0x65, darken(pigmentColor, 0.1f));
-            int outerCol = cur ? mkColor(0xA0, lighten(pigmentColor, 0.25f)) :
-                           hover ? mkColor(0x85, lighten(pigmentColor, 0.15f)) :
-                                   mkColor(0x75, pigmentColor);
+            int innerCol = cur   ? mkColor(0x99, lighten(pigmentColor, 0.15f)):
+                           hover ? mkColor(0x90, lighten(pigmentColor, 0.25f)):
+                                   mkColor(0x80, darken(pigmentColor, 0.10f));
+            int outerCol = cur   ? mkColor(0x99, lighten(pigmentColor, 0.15f)):
+                           hover ? mkColor(0x90, lighten(pigmentColor, 0.25f)):
+                                   mkColor(0x80, lighten(pigmentColor, 0.10f));
 
             fillSegment(ctx, cx, cy, R2_IN, R2_OUT, ang.start, ang.end, innerCol, outerCol);
 
@@ -136,12 +136,12 @@ public class SpellBookScreen extends Screen {
             boolean cur = i == centralGroup;
             boolean hover = isPointInSegment(mx, my, cx, cy, R1_IN, R1_OUT, ang.start, ang.end);
 
-            int innerCol = cur ? mkColor(0x80, pigmentColor) :
-                           hover ? mkColor(0x65, darken(pigmentColor, 0.1f)) :
-                                   mkColor(0x55, darken(pigmentColor, 0.25f));
-            int outerCol = cur ? mkColor(0x90, lighten(pigmentColor, 0.2f)) :
-                           hover ? mkColor(0x75, pigmentColor) :
-                                   mkColor(0x65, darken(pigmentColor, 0.1f));
+            int innerCol = cur   ? mkColor(0x99, lighten(pigmentColor, 0.15f)):
+                           hover ? mkColor(0x90, lighten(pigmentColor, 0.25f)):
+                                   mkColor(0x80, lighten(pigmentColor, 0.15f));
+            int outerCol = cur   ? mkColor(0x99, lighten(pigmentColor, 0.20f)):
+                           hover ? mkColor(0x90, lighten(pigmentColor, 0.25f)):
+                                   mkColor(0x80, darken(pigmentColor, 0.10f));
 
             fillSegment(ctx, cx, cy, R1_IN, R1_OUT, ang.start, ang.end, innerCol, outerCol);
 
