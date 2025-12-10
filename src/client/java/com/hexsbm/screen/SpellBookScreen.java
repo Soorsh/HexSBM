@@ -302,7 +302,7 @@ public class SpellBookScreen extends Screen {
 
     private static final Set<String> VISUAL_TAGS = Set.of(
         "Enchantments", "display", "CustomPotionColor", "Potion", "SkullOwner", "EntityTag",
-        "hexcasting:pattern_data", "hexcasting:amulet_state", "hexcasting:op_code", "hexcasting:thehexbook", "op_id"
+        "hexcasting:pattern_data", "hexcasting:amulet_state", "hexcasting:op_code", "patchouli:book", "op_id"
     );
 
     private static ItemStack makeIconOnly(ItemStack src) {
