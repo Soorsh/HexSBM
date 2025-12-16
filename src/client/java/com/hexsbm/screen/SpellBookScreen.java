@@ -30,7 +30,15 @@ import java.util.Set;
 public class SpellBookScreen extends Screen {
     private static final Identifier SPELLBOOK_ID = new Identifier("hexcasting", "spellbook");
     private static final int GROUPS = 8, GROUP_SIZE = 8, TOTAL_PAGES = 64;
-    private static final int R1_IN = 30, R1_OUT = 60, R2_IN = 70, R2_OUT = 110;
+
+    // Конфигурация
+    private final Config defaultConfig = new Config();
+    private Config savedConfig;
+    private Config liveConfig;
+
+    // UI редактор
+    private boolean editing = false;
+    private static final int PANEL_WIDTH = 220;
 
     private int pigmentColor = 0xFFFFFFFF;
     private Hand activeHand = null;
@@ -77,6 +85,22 @@ public class SpellBookScreen extends Screen {
         if (originalPageIdx != -1) {
             centralGroup = Math.max(0, Math.min(7, (originalPageIdx - 1) / GROUP_SIZE));
         }
+
+        // Загрузка конфига
+        try {
+            java.nio.file.Path path = net.minecraft.client.MinecraftClient.getInstance().runDirectory.toPath().resolve("config/hexsbm.json");
+            if (java.nio.file.Files.exists(path)) {
+                String json = java.nio.file.Files.readString(path);
+                this.savedConfig = new com.google.gson.Gson().fromJson(json, Config.class);
+            } else {
+                this.savedConfig = new Config();
+                saveConfig();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            this.savedConfig = new Config();
+        }
+        this.liveConfig = savedConfig.copy();
     }
 
     private int getBookPage(ItemStack book) {
@@ -98,31 +122,39 @@ public class SpellBookScreen extends Screen {
 
         ItemStack book = getCurrentBook();
         int currentPage = book.isEmpty() ? 1 : getBookPage(book);
-        int cx = width / 2, cy = height / 2;
+        int cx = (int)(width * liveConfig.centerX);
+        int cy = (int)(height * liveConfig.centerY);
 
+        // Внешнее кольцо — страницы
         for (int i = 0; i < GROUPS; i++) {
             int page = centralGroup * GROUP_SIZE + i + 1;
             if (page > TOTAL_PAGES) continue;
 
             SectorAngles ang = new SectorAngles(i);
             boolean cur = page == currentPage;
-            boolean hover = isPointInSegment(mx, my, cx, cy, R2_IN, R2_OUT, ang.start, ang.end);
+            boolean hover = isPointInSegment(mx, my, cx, cy,
+                liveConfig.outerRingInnerRadius,
+                liveConfig.outerRingOuterRadius,
+                ang.start, ang.end);
 
-            int innerCol = cur   ? mkColor(0x99, lighten(pigmentColor, 0.15f)):
-                           hover ? mkColor(0x90, lighten(pigmentColor, 0.25f)):
-                                   mkColor(0x80, darken(pigmentColor, 0.10f));
-            int outerCol = cur   ? mkColor(0x99, lighten(pigmentColor, 0.15f)):
-                           hover ? mkColor(0x90, lighten(pigmentColor, 0.25f)):
-                                   mkColor(0x80, lighten(pigmentColor, 0.10f));
+            int innerCol = cur   ? mkColor(liveConfig.activeAlpha, lighten(pigmentColor, 0.15f)) :
+                           hover ? mkColor(liveConfig.hoverAlpha, lighten(pigmentColor, 0.25f)) :
+                                   mkColor(liveConfig.inactiveAlpha, darken(pigmentColor, 0.10f));
+            int outerCol = cur   ? mkColor(liveConfig.activeAlpha, lighten(pigmentColor, 0.15f)) :
+                           hover ? mkColor(liveConfig.hoverAlpha, lighten(pigmentColor, 0.25f)) :
+                                   mkColor(liveConfig.inactiveAlpha, lighten(pigmentColor, 0.10f));
 
-            fillSegment(ctx, cx, cy, R2_IN, R2_OUT, ang.start, ang.end, innerCol, outerCol);
+            fillSegment(ctx, cx, cy,
+                liveConfig.outerRingInnerRadius,
+                liveConfig.outerRingOuterRadius,
+                ang.start, ang.end, innerCol, outerCol);
 
-            int x = (int)(cx + (R2_IN + R2_OUT) / 2.0 * Math.cos(ang.mid));
-            int y = (int)(cy + (R2_IN + R2_OUT) / 2.0 * Math.sin(ang.mid));
+            int x = (int)(cx + (liveConfig.outerRingInnerRadius + liveConfig.outerRingOuterRadius) / 2.0 * Math.cos(ang.mid));
+            int y = (int)(cy + (liveConfig.outerRingInnerRadius + liveConfig.outerRingOuterRadius) / 2.0 * Math.sin(ang.mid));
             ItemStack icon = getPageIcon(book, page);
             if (!icon.isEmpty()) ctx.drawItem(icon, x - 8, y - 8);
 
-            if (hover) {
+            if (hover && liveConfig.enableTooltips) {
                 List<Text> tip = new ArrayList<>();
                 String name = getCustomPageName(book, page);
                 tip.add(Text.literal(name != null && !name.isEmpty() ? name : "Page " + page));
@@ -131,25 +163,54 @@ public class SpellBookScreen extends Screen {
             }
         }
 
+        // Внутреннее кольцо — группы
         for (int i = 0; i < GROUPS; i++) {
             SectorAngles ang = new SectorAngles(i);
             boolean cur = i == centralGroup;
-            boolean hover = isPointInSegment(mx, my, cx, cy, R1_IN, R1_OUT, ang.start, ang.end);
+            boolean hover = isPointInSegment(mx, my, cx, cy,
+                liveConfig.innerRingInnerRadius,
+                liveConfig.innerRingOuterRadius,
+                ang.start, ang.end);
 
-            int innerCol = cur   ? mkColor(0x99, lighten(pigmentColor, 0.15f)):
-                           hover ? mkColor(0x90, lighten(pigmentColor, 0.25f)):
-                                   mkColor(0x80, lighten(pigmentColor, 0.15f));
-            int outerCol = cur   ? mkColor(0x99, lighten(pigmentColor, 0.20f)):
-                           hover ? mkColor(0x90, lighten(pigmentColor, 0.25f)):
-                                   mkColor(0x80, darken(pigmentColor, 0.10f));
+            int innerCol = cur   ? mkColor(liveConfig.activeAlpha, lighten(pigmentColor, 0.15f)) :
+                           hover ? mkColor(liveConfig.hoverAlpha, lighten(pigmentColor, 0.25f)) :
+                                   mkColor(liveConfig.inactiveAlpha, lighten(pigmentColor, 0.15f));
+            int outerCol = cur   ? mkColor(liveConfig.activeAlpha, lighten(pigmentColor, 0.20f)) :
+                           hover ? mkColor(liveConfig.hoverAlpha, lighten(pigmentColor, 0.25f)) :
+                                   mkColor(liveConfig.inactiveAlpha, darken(pigmentColor, 0.10f));
 
-            fillSegment(ctx, cx, cy, R1_IN, R1_OUT, ang.start, ang.end, innerCol, outerCol);
+            fillSegment(ctx, cx, cy,
+                liveConfig.innerRingInnerRadius,
+                liveConfig.innerRingOuterRadius,
+                ang.start, ang.end, innerCol, outerCol);
 
-            int r = (R1_IN + R1_OUT) / 2;
+            int r = (liveConfig.innerRingInnerRadius + liveConfig.innerRingOuterRadius) / 2;
             int x = (int)(cx + r * Math.cos(ang.mid));
             int y = (int)(cy + r * Math.sin(ang.mid));
             ItemStack icon = getGroupIcon(book, i);
             if (!icon.isEmpty()) ctx.drawItem(icon, x - 8, y - 8);
+        }
+
+        // Панель настроек
+        if (editing) {
+            int px = width - PANEL_WIDTH;
+            ctx.fill(px, 0, width, height, 0x88000000);
+
+            ctx.drawText(textRenderer, "Настройки UI", px + 10, 5, 0xFFFFFF, false);
+            ctx.drawText(textRenderer, "Сбросить всё", px + 10, 22, 0xFF6666, false);
+            ctx.drawText(textRenderer, "Сбросить до моего", px + 10, 52, 0x66FF66, false);
+
+            // Слайдер: outerRingOuterRadius
+            ctx.drawText(textRenderer, "Внешний радиус: " + liveConfig.outerRingOuterRadius, px + 10, 85, 0xFFFFFF, false);
+            ctx.fill(px + 10, 100, px + PANEL_WIDTH - 10, 110, 0xFF444444);
+            int sliderX = (int) (px + 10 + (liveConfig.outerRingOuterRadius - 50) * (PANEL_WIDTH - 20) / 300.0);
+            ctx.fill(sliderX - 3, 95, sliderX + 3, 115, 0xFFFFFFFF);
+
+            // Слайдер: innerRingInnerRadius
+            ctx.drawText(textRenderer, "Внутр. радиус: " + liveConfig.innerRingInnerRadius, px + 10, 115, 0xFFFFFF, false);
+            ctx.fill(px + 10, 130, px + PANEL_WIDTH - 10, 140, 0xFF444444);
+            sliderX = (int) (px + 10 + (liveConfig.innerRingInnerRadius - 10) * (PANEL_WIDTH - 20) / 190.0);
+            ctx.fill(sliderX - 3, 125, sliderX + 3, 145, 0xFFFFFFFF);
         }
     }
 
@@ -164,13 +225,52 @@ public class SpellBookScreen extends Screen {
             return true;
         }
 
-        int cx = width / 2, cy = height / 2;
         int mx = (int) mouseX, my = (int) mouseY;
+
+        // Клик по панели настроек
+        if (mx > width - PANEL_WIDTH) {
+            editing = true;
+
+            // Кнопка "Сбросить всё"
+            if (my >= 20 && my <= 40) {
+                liveConfig = defaultConfig.copy();
+                return true;
+            }
+
+            // Кнопка "Сбросить до моего"
+            if (my >= 50 && my <= 70) {
+                liveConfig = savedConfig.copy();
+                return true;
+            }
+
+            // Слайдер: outerRingOuterRadius
+            if (my >= 100 && my <= 110) {
+                int newValue = Math.min(350, Math.max(50, (mx - (width - PANEL_WIDTH) + 10) * 300 / (PANEL_WIDTH - 20) + 50));
+                liveConfig.outerRingOuterRadius = newValue;
+                return true;
+            }
+
+            // Слайдер: innerRingInnerRadius
+            if (my >= 130 && my <= 140) {
+                int newValue = Math.min(200, Math.max(10, (mx - (width - PANEL_WIDTH) + 10) * 190 / (PANEL_WIDTH - 20) + 10));
+                liveConfig.innerRingInnerRadius = newValue;
+                return true;
+            }
+
+            return true;
+        }
+
+        // Обычное поведение меню
+        int cx = (int)(width * liveConfig.centerX);
+        int cy = (int)(height * liveConfig.centerY);
 
         if (button == 0) {
             for (int i = 0; i < GROUPS; i++) {
                 SectorAngles ang = new SectorAngles(i);
-                if (isPointInSegment(mx, my, cx, cy, R1_IN, R1_OUT, ang.start, ang.end)) {
+                if (isPointInSegment(mx, my, cx, cy,
+                    liveConfig.innerRingInnerRadius,
+                    liveConfig.innerRingOuterRadius,
+                    ang.start, ang.end)) {
                     centralGroup = i;
                     return true;
                 }
@@ -179,14 +279,19 @@ public class SpellBookScreen extends Screen {
                 int page = centralGroup * GROUP_SIZE + i + 1;
                 if (page > TOTAL_PAGES) continue;
                 SectorAngles ang = new SectorAngles(i);
-                if (isPointInSegment(mx, my, cx, cy, R2_IN, R2_OUT, ang.start, ang.end)) {
+                if (isPointInSegment(mx, my, cx, cy,
+                    liveConfig.outerRingInnerRadius,
+                    liveConfig.outerRingOuterRadius,
+                    ang.start, ang.end)) {
                     selectionConfirmed = true;
                     com.hexsbm.HexSBMClient.sendChangeSpellbookPage(activeHand, page);
                     close();
                     return true;
                 }
             }
-            close();
+            if (liveConfig.closeOnBackgroundClick) {
+                close();
+            }
             return true;
         }
 
@@ -196,7 +301,10 @@ public class SpellBookScreen extends Screen {
 
             for (int i = 0; i < GROUPS; i++) {
                 SectorAngles ang = new SectorAngles(i);
-                if (isPointInSegment(mx, my, cx, cy, R1_IN, R1_OUT, ang.start, ang.end)) {
+                if (isPointInSegment(mx, my, cx, cy,
+                    liveConfig.innerRingInnerRadius,
+                    liveConfig.innerRingOuterRadius,
+                    ang.start, ang.end)) {
                     updateGroupIcon(book, i);
                     return true;
                 }
@@ -205,7 +313,10 @@ public class SpellBookScreen extends Screen {
                 int page = centralGroup * GROUP_SIZE + i + 1;
                 if (page > TOTAL_PAGES) continue;
                 SectorAngles ang = new SectorAngles(i);
-                if (isPointInSegment(mx, my, cx, cy, R2_IN, R2_OUT, ang.start, ang.end)) {
+                if (isPointInSegment(mx, my, cx, cy,
+                    liveConfig.outerRingInnerRadius,
+                    liveConfig.outerRingOuterRadius,
+                    ang.start, ang.end)) {
                     updatePageIcon(book, page);
                     return true;
                 }
@@ -243,7 +354,22 @@ public class SpellBookScreen extends Screen {
 
     @Override
     public void close() {
+        if (editing) {
+            savedConfig = liveConfig.copy();
+            saveConfig();
+        }
         if (client != null) client.setScreen(null);
+    }
+
+    private void saveConfig() {
+        try {
+            java.nio.file.Path path = net.minecraft.client.MinecraftClient.getInstance().runDirectory.toPath().resolve("config/hexsbm.json");
+            java.nio.file.Files.createDirectories(path.getParent());
+            String json = new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(savedConfig);
+            java.nio.file.Files.writeString(path, json);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -357,7 +483,10 @@ public class SpellBookScreen extends Screen {
     }
 
     private void fillSegment(DrawContext ctx, int cx, int cy, int rIn, int rOut,
-                             double a1, double a2, int cIn, int cOut) {
+                            double a1, double a2, int cIn, int cOut) {
+        if (rIn < 0) rIn = 0;
+        if (rOut <= rIn) rOut = rIn + 1;
+
         Matrix4f m = ctx.getMatrices().peek().getPositionMatrix();
         Tessellator t = Tessellator.getInstance();
         var b = t.getBuffer();
@@ -369,7 +498,8 @@ public class SpellBookScreen extends Screen {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
 
-        int seg = Math.max(4, (int) ((a2 - a1) / (Math.PI / 30)));
+        int seg = 16;
+
         b.begin(VertexFormat.DrawMode.TRIANGLE_STRIP, VertexFormats.POSITION_COLOR);
 
         for (int i = 0; i <= seg; i++) {
@@ -404,6 +534,51 @@ public class SpellBookScreen extends Screen {
             mid = -Math.PI / 2 + w * i;
             start = mid - w / 2;
             end = mid + w / 2;
+        }
+    }
+
+    // Вложенный класс конфигурации
+    public static class Config {
+        public float centerX = 0.5f;
+        public float centerY = 0.5f;
+        public int innerRingInnerRadius = 30;
+        public int innerRingOuterRadius = 60;
+        public int outerRingInnerRadius = 70;
+        public int outerRingOuterRadius = 110;
+        public int activeAlpha = 0x99;
+        public int hoverAlpha = 0x90;
+        public int inactiveAlpha = 0x80;
+        public boolean enableTooltips = true;
+        public boolean closeOnBackgroundClick = true;
+
+        public void resetToDefault() {
+            centerX = 0.5f;
+            centerY = 0.5f;
+            innerRingInnerRadius = 30;
+            innerRingOuterRadius = 60;
+            outerRingInnerRadius = 70;
+            outerRingOuterRadius = 110;
+            activeAlpha = 0x99;
+            hoverAlpha = 0x90;
+            inactiveAlpha = 0x80;
+            enableTooltips = true;
+            closeOnBackgroundClick = true;
+        }
+
+        public Config copy() {
+            Config c = new Config();
+            c.centerX = this.centerX;
+            c.centerY = this.centerY;
+            c.innerRingInnerRadius = this.innerRingInnerRadius;
+            c.innerRingOuterRadius = this.innerRingOuterRadius;
+            c.outerRingInnerRadius = this.outerRingInnerRadius;
+            c.outerRingOuterRadius = this.outerRingOuterRadius;
+            c.activeAlpha = this.activeAlpha;
+            c.hoverAlpha = this.hoverAlpha;
+            c.inactiveAlpha = this.inactiveAlpha;
+            c.enableTooltips = this.enableTooltips;
+            c.closeOnBackgroundClick = this.closeOnBackgroundClick;
+            return c;
         }
     }
 }
