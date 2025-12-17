@@ -135,8 +135,11 @@ public class SpellBookScreen extends Screen {
                 liveConfig.outerRingOuterRadius,
                 ang.start, ang.end, innerCol, outerCol);
 
-            int x = (int)(cx + (liveConfig.outerRingInnerRadius + liveConfig.outerRingOuterRadius) / 2.0 * Math.cos(ang.mid));
-            int y = (int)(cy + (liveConfig.outerRingInnerRadius + liveConfig.outerRingOuterRadius) / 2.0 * Math.sin(ang.mid));
+            int r = (liveConfig.outerRingInnerRadius + liveConfig.outerRingOuterRadius) / 2;
+            r += liveConfig.outerIconRadiusOffset;
+            r = Math.max(0, r);
+            int x = (int)(cx + r * Math.cos(ang.mid));
+            int y = (int)(cy + r * Math.sin(ang.mid));
             ItemStack icon = getPageIcon(book, page);
             if (!icon.isEmpty()) ctx.drawItem(icon, x - 8, y - 8);
 
@@ -171,6 +174,8 @@ public class SpellBookScreen extends Screen {
                 ang.start, ang.end, innerCol, outerCol);
 
             int r = (liveConfig.innerRingInnerRadius + liveConfig.innerRingOuterRadius) / 2;
+            r += liveConfig.innerIconRadiusOffset;
+            r = Math.max(0, r);
             int x = (int)(cx + r * Math.cos(ang.mid));
             int y = (int)(cy + r * Math.sin(ang.mid));
             ItemStack icon = getGroupIcon(book, i);
@@ -188,6 +193,10 @@ public class SpellBookScreen extends Screen {
 
             drawNumberField(ctx, px + 100, 85, liveConfig.outerRingOuterRadius, mx, my, "Внешний радиус", "outer");
             drawNumberField(ctx, px + 100, 115, liveConfig.innerRingInnerRadius, mx, my, "Внутр. радиус", "inner");
+            drawNumberField(ctx, px + 100, 145, liveConfig.outerRingInnerRadius, mx, my, "Начало внеш.", "outerInner");
+            drawNumberField(ctx, px + 100, 175, liveConfig.innerRingOuterRadius, mx, my, "Конец внутр.", "innerOuter");
+            drawNumberField(ctx, px + 100, 205, liveConfig.innerIconRadiusOffset, mx, my, "Смещение внутр.", "innerIconOffset");
+            drawNumberField(ctx, px + 100, 235, liveConfig.outerIconRadiusOffset, mx, my, "Смещение внеш.", "outerIconOffset");
         }
     }
 
@@ -210,16 +219,28 @@ public class SpellBookScreen extends Screen {
 
             applyEditingValue();
 
-            if (isClickOnField(mx, my, px + 100, 85)) {
-                editingField = "outer";
+            if (isClickOnField(mx, my, px + 100, 145)) {
+                editingField = "outerInner";
                 editingValue.setLength(0);
-                editingValue.append(liveConfig.outerRingOuterRadius);
+                editingValue.append(liveConfig.outerRingInnerRadius);
                 return true;
             }
-            if (isClickOnField(mx, my, px + 100, 115)) {
-                editingField = "inner";
+            if (isClickOnField(mx, my, px + 100, 175)) {
+                editingField = "innerOuter";
                 editingValue.setLength(0);
-                editingValue.append(liveConfig.innerRingInnerRadius);
+                editingValue.append(liveConfig.innerRingOuterRadius);
+                return true;
+            }
+            if (isClickOnField(mx, my, px + 100, 205)) {
+                editingField = "innerIconOffset";
+                editingValue.setLength(0);
+                editingValue.append(liveConfig.innerIconRadiusOffset);
+                return true;
+            }
+            if (isClickOnField(mx, my, px + 100, 235)) {
+                editingField = "outerIconOffset";
+                editingValue.setLength(0);
+                editingValue.append(liveConfig.outerIconRadiusOffset);
                 return true;
             }
 
@@ -352,9 +373,11 @@ public class SpellBookScreen extends Screen {
                 editingValue.append(c);
                 return true;
             }
-            // Любая другая клавиша — применяем и выходим
-            applyEditingValue();
-            editingField = null;
+            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+                applyEditingValue();
+                editingField = null;
+                return true;
+            }
             return true;
         }
 
@@ -373,59 +396,34 @@ public class SpellBookScreen extends Screen {
         if (editing && mx > px) {
             int step = amount > 0 ? 1 : -1;
 
-            // Внешний радиус
             if (isMouseOverField(mx, my, px + 100, 85)) {
-                int currentValue;
-                if ("outer".equals(editingField)) {
-                    // Берём из editingValue, если вводим
-                    try {
-                        currentValue = editingValue.length() == 0 ? 0 : Integer.parseInt(editingValue.toString());
-                    } catch (NumberFormatException e) {
-                        currentValue = liveConfig.outerRingOuterRadius;
-                    }
-                } else {
-                    // Иначе — из liveConfig
-                    currentValue = liveConfig.outerRingOuterRadius;
-                }
-
-                int newValue = MathHelper.clamp(currentValue + step, 50, 350);
-                liveConfig.outerRingOuterRadius = newValue;
-
-                // Обновляем editingValue, если поле в фокусе
-                if ("outer".equals(editingField)) {
-                    editingValue.setLength(0);
-                    editingValue.append(newValue);
-                }
+                handleScrollField("outer", step);
                 return true;
             }
-
-            // Внутренний радиус
             if (isMouseOverField(mx, my, px + 100, 115)) {
-                int currentValue;
-                if ("inner".equals(editingField)) {
-                    try {
-                        currentValue = editingValue.length() == 0 ? 0 : Integer.parseInt(editingValue.toString());
-                    } catch (NumberFormatException e) {
-                        currentValue = liveConfig.innerRingInnerRadius;
-                    }
-                } else {
-                    currentValue = liveConfig.innerRingInnerRadius;
-                }
-
-                int newValue = MathHelper.clamp(currentValue + step, 10, 200);
-                liveConfig.innerRingInnerRadius = newValue;
-
-                if ("inner".equals(editingField)) {
-                    editingValue.setLength(0);
-                    editingValue.append(newValue);
-                }
+                handleScrollField("inner", step);
+                return true;
+            }
+            if (isMouseOverField(mx, my, px + 100, 145)) {
+                handleScrollField("outerInner", step);
+                return true;
+            }
+            if (isMouseOverField(mx, my, px + 100, 175)) {
+                handleScrollField("innerOuter", step);
+                return true;
+            }
+            if (isMouseOverField(mx, my, px + 100, 205)) {
+                handleScrollField("innerIconOffset", step);
+                return true;
+            }
+            if (isMouseOverField(mx, my, px + 100, 235)) {
+                handleScrollField("outerIconOffset", step);
                 return true;
             }
 
-            return true; // блокируем скролл вне полей при открытой панели
+            return true;
         }
 
-        // Обычное поведение
         if (client == null || client.player == null || activeHand == null) return false;
         if (activeHand == Hand.OFF_HAND) {
             PlayerInventory inv = client.player.getInventory();
@@ -618,11 +616,125 @@ public class SpellBookScreen extends Screen {
         try {
             int value = Integer.parseInt(editingValue.toString());
             switch (editingField) {
-                case "outer" -> liveConfig.outerRingOuterRadius = MathHelper.clamp(value, 50, 350);
-                case "inner" -> liveConfig.innerRingInnerRadius = MathHelper.clamp(value, 10, 200);
+                case "outer" -> liveConfig.outerRingOuterRadius = value;
+                case "inner" -> liveConfig.innerRingInnerRadius = value;
+                case "outerInner" -> liveConfig.outerRingInnerRadius = value;
+                case "innerOuter" -> liveConfig.innerRingOuterRadius = value;
+                case "innerIconOffset" -> liveConfig.innerIconRadiusOffset = MathHelper.clamp(value, -200, 200);
+                case "outerIconOffset" -> liveConfig.outerIconRadiusOffset = MathHelper.clamp(value, -200, 200);
+            }
+            if ("outer".equals(editingField) || "inner".equals(editingField) || 
+                "outerInner".equals(editingField) || "innerOuter".equals(editingField)) {
+                enforceRingOrder(editingField);
             }
         } catch (NumberFormatException ignored) {}
         editingField = null;
+    }
+
+    private void handleScrollField(String fieldName, int step) {
+        int currentValue;
+        if (fieldName.equals(editingField)) {
+            try {
+                currentValue = editingValue.length() == 0 
+                    ? getCurrentValue(fieldName) 
+                    : Integer.parseInt(editingValue.toString());
+            } catch (NumberFormatException ignored) {
+                currentValue = getCurrentValue(fieldName);
+            }
+        } else {
+            currentValue = getCurrentValue(fieldName);
+        }
+
+        int newValue = currentValue + step;
+
+        switch (fieldName) {
+            case "outer" -> liveConfig.outerRingOuterRadius = newValue;
+            case "inner" -> liveConfig.innerRingInnerRadius = newValue;
+            case "outerInner" -> liveConfig.outerRingInnerRadius = newValue;
+            case "innerOuter" -> liveConfig.innerRingOuterRadius = newValue;
+            case "innerIconOffset" -> liveConfig.innerIconRadiusOffset = MathHelper.clamp(newValue, -200, 200);
+            case "outerIconOffset" -> liveConfig.outerIconRadiusOffset = MathHelper.clamp(newValue, -200, 200);
+        }
+
+        if ("outer".equals(fieldName) || "inner".equals(fieldName) || 
+            "outerInner".equals(fieldName) || "innerOuter".equals(fieldName)) {
+            enforceRingOrder(fieldName);
+        }
+
+        if (fieldName.equals(editingField)) {
+            editingValue.setLength(0);
+            editingValue.append(getCurrentValue(fieldName));
+        }
+    }
+
+    private int getCurrentValue(String field) {
+        return switch (field) {
+            case "outer" -> liveConfig.outerRingOuterRadius;
+            case "inner" -> liveConfig.innerRingInnerRadius;
+            case "outerInner" -> liveConfig.outerRingInnerRadius;
+            case "innerOuter" -> liveConfig.innerRingOuterRadius;
+            case "innerIconOffset" -> liveConfig.innerIconRadiusOffset;
+            case "outerIconOffset" -> liveConfig.outerIconRadiusOffset;
+            default -> 0;
+        };
+    }
+
+    private void enforceRingOrder(String editingField) {
+        // Считываем текущие значения, не допуская < 0
+        int innerIn = Math.max(0, liveConfig.innerRingInnerRadius);
+        int innerOut = Math.max(0, liveConfig.innerRingOuterRadius);
+        int outerIn = Math.max(0, liveConfig.outerRingInnerRadius);
+        int outerOut = Math.max(0, liveConfig.outerRingOuterRadius);
+
+        // Глобальный максимум — чтобы не улетало
+        outerOut = Math.min(999, outerOut);
+        outerIn = Math.min(999, outerIn);
+        innerOut = Math.min(999, innerOut);
+        innerIn = Math.min(999, innerIn);
+
+        if ("inner".equals(editingField)) {
+            // innerIn — главный: двигаем всё вправо от него
+            innerOut = Math.max(innerIn, innerOut);
+            outerIn = Math.max(innerOut, outerIn);
+            outerOut = Math.max(outerIn, outerOut);
+        }
+        else if ("innerOuter".equals(editingField)) {
+            // innerOut — главный
+            innerIn = Math.min(innerIn, innerOut);
+            outerIn = Math.max(outerIn, innerOut);
+            outerOut = Math.max(outerOut, outerIn);
+        }
+        else if ("outerInner".equals(editingField)) {
+            // outerIn — главный
+            outerOut = Math.max(outerOut, outerIn);
+            innerOut = Math.min(innerOut, outerIn);
+            innerIn = Math.min(innerIn, innerOut);
+        }
+        else if ("outer".equals(editingField)) {
+            // outerOut — главный
+            outerIn = Math.min(outerIn, outerOut);
+            innerOut = Math.min(innerOut, outerIn);
+            innerIn = Math.min(innerIn, innerOut);
+        }
+        else {
+            // Никто не редактирует — просто сортируем
+            innerIn = Math.max(0, innerIn);
+            innerOut = Math.max(innerIn, innerOut);
+            outerIn = Math.max(innerOut, outerIn);
+            outerOut = Math.max(outerIn, outerOut);
+        }
+
+        // Финальный clamp по убыванию, чтобы сохранить порядок при max=999
+        outerOut = Math.min(999, outerOut);
+        outerIn = Math.min(999, outerIn);
+        innerOut = Math.min(999, innerOut);
+        innerIn = Math.min(999, innerIn);
+
+        // Применяем
+        liveConfig.innerRingInnerRadius = innerIn;
+        liveConfig.innerRingOuterRadius = innerOut;
+        liveConfig.outerRingInnerRadius = outerIn;
+        liveConfig.outerRingOuterRadius = outerOut;
     }
 
     private static class SectorAngles {

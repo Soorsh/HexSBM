@@ -12,6 +12,8 @@ public class HexSBMConfig {
     public int inactiveAlpha = 0x80;
     public boolean enableTooltips = true;
     public boolean closeOnBackgroundClick = true;
+    public int innerIconRadiusOffset = 0;
+    public int outerIconRadiusOffset = 0;
 
     public HexSBMConfig copy() {
         HexSBMConfig c = new HexSBMConfig();
@@ -26,6 +28,8 @@ public class HexSBMConfig {
         c.inactiveAlpha = this.inactiveAlpha;
         c.enableTooltips = this.enableTooltips;
         c.closeOnBackgroundClick = this.closeOnBackgroundClick;
+        c.innerIconRadiusOffset = this.innerIconRadiusOffset;
+        c.outerIconRadiusOffset = this.outerIconRadiusOffset;
         return c;
     }
 
@@ -41,5 +45,7 @@ public class HexSBMConfig {
         inactiveAlpha = 0x80;
         enableTooltips = true;
         closeOnBackgroundClick = true;
+        innerIconRadiusOffset = 0;
+        outerIconRadiusOffset = 0;
     }
 }
