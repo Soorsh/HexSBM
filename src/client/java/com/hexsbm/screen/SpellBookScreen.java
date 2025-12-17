@@ -1,5 +1,7 @@
 package com.hexsbm.screen;
 
+import com.hexsbm.config.ConfigManager;
+import com.hexsbm.config.HexSBMConfig;
 import com.hexsbm.screen.pigment.PigmentColorRegistry;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.DrawContext;
@@ -31,11 +33,6 @@ public class SpellBookScreen extends Screen {
     private static final Identifier SPELLBOOK_ID = new Identifier("hexcasting", "spellbook");
     private static final int GROUPS = 8, GROUP_SIZE = 8, TOTAL_PAGES = 64;
 
-    // Конфигурация
-    private final Config defaultConfig = new Config();
-    private Config savedConfig;
-    private Config liveConfig;
-
     // UI редактор
     private boolean editing = false;
     private static final int PANEL_WIDTH = 220;
@@ -45,6 +42,9 @@ public class SpellBookScreen extends Screen {
     private boolean selectionConfirmed = false;
     private int centralGroup = 0;
     private int originalPageIdx = -1;
+
+    // Конфигурация — теперь только live-копия
+    private HexSBMConfig liveConfig;
 
     public SpellBookScreen() {
         super(Text.empty());
@@ -86,21 +86,8 @@ public class SpellBookScreen extends Screen {
             centralGroup = Math.max(0, Math.min(7, (originalPageIdx - 1) / GROUP_SIZE));
         }
 
-        // Загрузка конфига
-        try {
-            java.nio.file.Path path = net.minecraft.client.MinecraftClient.getInstance().runDirectory.toPath().resolve("config/hexsbm.json");
-            if (java.nio.file.Files.exists(path)) {
-                String json = java.nio.file.Files.readString(path);
-                this.savedConfig = new com.google.gson.Gson().fromJson(json, Config.class);
-            } else {
-                this.savedConfig = new Config();
-                saveConfig();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            this.savedConfig = new Config();
-        }
-        this.liveConfig = savedConfig.copy();
+        // Загрузка конфигурации через менеджер
+        this.liveConfig = ConfigManager.getSavedConfig(); // уже копия
     }
 
     private int getBookPage(ItemStack book) {
@@ -233,13 +220,13 @@ public class SpellBookScreen extends Screen {
 
             // Кнопка "Сбросить всё"
             if (my >= 20 && my <= 40) {
-                liveConfig = defaultConfig.copy();
+                liveConfig = new HexSBMConfig(); // дефолт
                 return true;
             }
 
             // Кнопка "Сбросить до моего"
             if (my >= 50 && my <= 70) {
-                liveConfig = savedConfig.copy();
+                liveConfig = ConfigManager.getSavedConfig(); // загрузить сохранённый
                 return true;
             }
 
@@ -355,21 +342,9 @@ public class SpellBookScreen extends Screen {
     @Override
     public void close() {
         if (editing) {
-            savedConfig = liveConfig.copy();
-            saveConfig();
+            ConfigManager.saveConfig(this.liveConfig); // сохраняем изменения
         }
         if (client != null) client.setScreen(null);
-    }
-
-    private void saveConfig() {
-        try {
-            java.nio.file.Path path = net.minecraft.client.MinecraftClient.getInstance().runDirectory.toPath().resolve("config/hexsbm.json");
-            java.nio.file.Files.createDirectories(path.getParent());
-            String json = new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(savedConfig);
-            java.nio.file.Files.writeString(path, json);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 
     @Override
@@ -534,51 +509,6 @@ public class SpellBookScreen extends Screen {
             mid = -Math.PI / 2 + w * i;
             start = mid - w / 2;
             end = mid + w / 2;
-        }
-    }
-
-    // Вложенный класс конфигурации
-    public static class Config {
-        public float centerX = 0.5f;
-        public float centerY = 0.5f;
-        public int innerRingInnerRadius = 30;
-        public int innerRingOuterRadius = 60;
-        public int outerRingInnerRadius = 70;
-        public int outerRingOuterRadius = 110;
-        public int activeAlpha = 0x99;
-        public int hoverAlpha = 0x90;
-        public int inactiveAlpha = 0x80;
-        public boolean enableTooltips = true;
-        public boolean closeOnBackgroundClick = true;
-
-        public void resetToDefault() {
-            centerX = 0.5f;
-            centerY = 0.5f;
-            innerRingInnerRadius = 30;
-            innerRingOuterRadius = 60;
-            outerRingInnerRadius = 70;
-            outerRingOuterRadius = 110;
-            activeAlpha = 0x99;
-            hoverAlpha = 0x90;
-            inactiveAlpha = 0x80;
-            enableTooltips = true;
-            closeOnBackgroundClick = true;
-        }
-
-        public Config copy() {
-            Config c = new Config();
-            c.centerX = this.centerX;
-            c.centerY = this.centerY;
-            c.innerRingInnerRadius = this.innerRingInnerRadius;
-            c.innerRingOuterRadius = this.innerRingOuterRadius;
-            c.outerRingInnerRadius = this.outerRingInnerRadius;
-            c.outerRingOuterRadius = this.outerRingOuterRadius;
-            c.activeAlpha = this.activeAlpha;
-            c.hoverAlpha = this.hoverAlpha;
-            c.inactiveAlpha = this.inactiveAlpha;
-            c.enableTooltips = this.enableTooltips;
-            c.closeOnBackgroundClick = this.closeOnBackgroundClick;
-            return c;
         }
     }
 }
