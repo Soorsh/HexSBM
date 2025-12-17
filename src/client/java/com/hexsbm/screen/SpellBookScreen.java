@@ -33,18 +33,18 @@ public class SpellBookScreen extends Screen {
     private static final Identifier SPELLBOOK_ID = new Identifier("hexcasting", "spellbook");
     private static final int GROUPS = 8, GROUP_SIZE = 8, TOTAL_PAGES = 64;
 
-    // UI редактор
     private boolean editing = false;
     private static final int PANEL_WIDTH = 220;
 
     private int pigmentColor = 0xFFFFFFFF;
     private Hand activeHand = null;
-    private boolean selectionConfirmed = false;
     private int centralGroup = 0;
     private int originalPageIdx = -1;
 
-    // Конфигурация — теперь только live-копия
     private HexSBMConfig liveConfig;
+
+    private String editingField = null; // "outer" или "inner"
+    private final StringBuilder editingValue = new StringBuilder();
 
     public SpellBookScreen() {
         super(Text.empty());
@@ -86,8 +86,7 @@ public class SpellBookScreen extends Screen {
             centralGroup = Math.max(0, Math.min(7, (originalPageIdx - 1) / GROUP_SIZE));
         }
 
-        // Загрузка конфигурации через менеджер
-        this.liveConfig = ConfigManager.getSavedConfig(); // уже копия
+        this.liveConfig = ConfigManager.getSavedConfig();
     }
 
     private int getBookPage(ItemStack book) {
@@ -187,17 +186,8 @@ public class SpellBookScreen extends Screen {
             ctx.drawText(textRenderer, "Сбросить всё", px + 10, 22, 0xFF6666, false);
             ctx.drawText(textRenderer, "Сбросить до моего", px + 10, 52, 0x66FF66, false);
 
-            // Слайдер: outerRingOuterRadius
-            ctx.drawText(textRenderer, "Внешний радиус: " + liveConfig.outerRingOuterRadius, px + 10, 85, 0xFFFFFF, false);
-            ctx.fill(px + 10, 100, px + PANEL_WIDTH - 10, 110, 0xFF444444);
-            int sliderX = (int) (px + 10 + (liveConfig.outerRingOuterRadius - 50) * (PANEL_WIDTH - 20) / 300.0);
-            ctx.fill(sliderX - 3, 95, sliderX + 3, 115, 0xFFFFFFFF);
-
-            // Слайдер: innerRingInnerRadius
-            ctx.drawText(textRenderer, "Внутр. радиус: " + liveConfig.innerRingInnerRadius, px + 10, 115, 0xFFFFFF, false);
-            ctx.fill(px + 10, 130, px + PANEL_WIDTH - 10, 140, 0xFF444444);
-            sliderX = (int) (px + 10 + (liveConfig.innerRingInnerRadius - 10) * (PANEL_WIDTH - 20) / 190.0);
-            ctx.fill(sliderX - 3, 125, sliderX + 3, 145, 0xFFFFFFFF);
+            drawNumberField(ctx, px + 100, 85, liveConfig.outerRingOuterRadius, mx, my, "Внешний радиус", "outer");
+            drawNumberField(ctx, px + 100, 115, liveConfig.innerRingInnerRadius, mx, my, "Внутр. радиус", "inner");
         }
     }
 
@@ -214,36 +204,36 @@ public class SpellBookScreen extends Screen {
 
         int mx = (int) mouseX, my = (int) mouseY;
 
-        // Клик по панели настроек
         if (mx > width - PANEL_WIDTH) {
             editing = true;
+            int px = width - PANEL_WIDTH;
 
-            // Кнопка "Сбросить всё"
+            applyEditingValue();
+
+            if (isClickOnField(mx, my, px + 100, 85)) {
+                editingField = "outer";
+                editingValue.setLength(0);
+                editingValue.append(liveConfig.outerRingOuterRadius);
+                return true;
+            }
+            if (isClickOnField(mx, my, px + 100, 115)) {
+                editingField = "inner";
+                editingValue.setLength(0);
+                editingValue.append(liveConfig.innerRingInnerRadius);
+                return true;
+            }
+
             if (my >= 20 && my <= 40) {
-                liveConfig = new HexSBMConfig(); // дефолт
+                liveConfig = new HexSBMConfig();
                 return true;
             }
-
-            // Кнопка "Сбросить до моего"
             if (my >= 50 && my <= 70) {
-                liveConfig = ConfigManager.getSavedConfig(); // загрузить сохранённый
+                liveConfig = ConfigManager.getSavedConfig();
                 return true;
             }
 
-            // Слайдер: outerRingOuterRadius
-            if (my >= 100 && my <= 110) {
-                int newValue = Math.min(350, Math.max(50, (mx - (width - PANEL_WIDTH) + 10) * 300 / (PANEL_WIDTH - 20) + 50));
-                liveConfig.outerRingOuterRadius = newValue;
-                return true;
-            }
-
-            // Слайдер: innerRingInnerRadius
-            if (my >= 130 && my <= 140) {
-                int newValue = Math.min(200, Math.max(10, (mx - (width - PANEL_WIDTH) + 10) * 190 / (PANEL_WIDTH - 20) + 10));
-                liveConfig.innerRingInnerRadius = newValue;
-                return true;
-            }
-
+            // Клик мимо полей — выходим из редактирования
+            editingField = null;
             return true;
         }
 
@@ -270,7 +260,6 @@ public class SpellBookScreen extends Screen {
                     liveConfig.outerRingInnerRadius,
                     liveConfig.outerRingOuterRadius,
                     ang.start, ang.end)) {
-                    selectionConfirmed = true;
                     com.hexsbm.HexSBMClient.sendChangeSpellbookPage(activeHand, page);
                     close();
                     return true;
@@ -341,14 +330,34 @@ public class SpellBookScreen extends Screen {
 
     @Override
     public void close() {
+        applyEditingValue();
         if (editing) {
-            ConfigManager.saveConfig(this.liveConfig); // сохраняем изменения
+            ConfigManager.saveConfig(this.liveConfig);
         }
         if (client != null) client.setScreen(null);
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int mods) {
+        if (editingField != null) {
+            if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+                if (editingValue.length() > 0) {
+                    editingValue.setLength(editingValue.length() - 1);
+                }
+                return true;
+            }
+            if ((keyCode >= GLFW.GLFW_KEY_0 && keyCode <= GLFW.GLFW_KEY_9) ||
+                (keyCode >= GLFW.GLFW_KEY_KP_0 && keyCode <= GLFW.GLFW_KEY_KP_9)) {
+                char c = (char) ('0' + (keyCode <= GLFW.GLFW_KEY_9 ? keyCode - GLFW.GLFW_KEY_0 : keyCode - GLFW.GLFW_KEY_KP_0));
+                editingValue.append(c);
+                return true;
+            }
+            // Любая другая клавиша — применяем и выходим
+            applyEditingValue();
+            editingField = null;
+            return true;
+        }
+
         if (keyCode == GLFW.GLFW_KEY_V || keyCode == GLFW.GLFW_KEY_ESCAPE) {
             close();
             return true;
@@ -358,9 +367,66 @@ public class SpellBookScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
-        if (client == null || client.player == null || activeHand == null) {
-            return false;
+        int mx = (int) mouseX, my = (int) mouseY;
+        int px = width - PANEL_WIDTH;
+
+        if (editing && mx > px) {
+            int step = amount > 0 ? 1 : -1;
+
+            // Внешний радиус
+            if (isMouseOverField(mx, my, px + 100, 85)) {
+                int currentValue;
+                if ("outer".equals(editingField)) {
+                    // Берём из editingValue, если вводим
+                    try {
+                        currentValue = editingValue.length() == 0 ? 0 : Integer.parseInt(editingValue.toString());
+                    } catch (NumberFormatException e) {
+                        currentValue = liveConfig.outerRingOuterRadius;
+                    }
+                } else {
+                    // Иначе — из liveConfig
+                    currentValue = liveConfig.outerRingOuterRadius;
+                }
+
+                int newValue = MathHelper.clamp(currentValue + step, 50, 350);
+                liveConfig.outerRingOuterRadius = newValue;
+
+                // Обновляем editingValue, если поле в фокусе
+                if ("outer".equals(editingField)) {
+                    editingValue.setLength(0);
+                    editingValue.append(newValue);
+                }
+                return true;
+            }
+
+            // Внутренний радиус
+            if (isMouseOverField(mx, my, px + 100, 115)) {
+                int currentValue;
+                if ("inner".equals(editingField)) {
+                    try {
+                        currentValue = editingValue.length() == 0 ? 0 : Integer.parseInt(editingValue.toString());
+                    } catch (NumberFormatException e) {
+                        currentValue = liveConfig.innerRingInnerRadius;
+                    }
+                } else {
+                    currentValue = liveConfig.innerRingInnerRadius;
+                }
+
+                int newValue = MathHelper.clamp(currentValue + step, 10, 200);
+                liveConfig.innerRingInnerRadius = newValue;
+
+                if ("inner".equals(editingField)) {
+                    editingValue.setLength(0);
+                    editingValue.append(newValue);
+                }
+                return true;
+            }
+
+            return true; // блокируем скролл вне полей при открытой панели
         }
+
+        // Обычное поведение
+        if (client == null || client.player == null || activeHand == null) return false;
         if (activeHand == Hand.OFF_HAND) {
             PlayerInventory inv = client.player.getInventory();
             int current = inv.selectedSlot;
@@ -500,6 +566,63 @@ public class SpellBookScreen extends Screen {
         float g = Math.max(0, ((color >> 8) & 0xFF) / 255f - f);
         float b = Math.max(0, (color & 0xFF) / 255f - f);
         return (color & 0xFF000000) | ((int)(r * 255) << 16) | ((int)(g * 255) << 8) | (int)(b * 255);
+    }
+
+    private void drawNumberField(DrawContext ctx, int x, int y, int value, int mx, int my, String label, String fieldId) {
+        int width = 80;
+        int height = 16;
+
+        // Подсветка при наведении
+        boolean hover = mx >= x && mx < x + width && my >= y && my < y + height;
+        if (hover) {
+            ctx.fill(x, y, x + width, y + height, 0x44FFFFFF);
+        }
+
+        // Фон поля
+        ctx.fill(x, y, x + width, y + height, 0xFF333333);
+        ctx.fill(x, y, x + width, y + 1, 0xFF666666);
+        ctx.fill(x, y, x + 1, y + height, 0xFF666666);
+
+        String display = editingField != null && editingField.equals(fieldId)
+            ? editingValue.toString()
+            : String.valueOf(value);
+
+        // Текст
+        ctx.drawText(textRenderer, display, x + 3, y + 4, 0xFFFFFF, false);
+
+        // Мигающий курсор
+        if (editingField != null && editingField.equals(fieldId)) {
+            long time = System.currentTimeMillis() / 500;
+            if (time % 2 == 0) {
+                int textWidth = textRenderer.getWidth(Text.literal(display));
+                int cursorX = x + 3 + textWidth + 1;
+                ctx.fill(cursorX, y + 3, cursorX + 1, y + 13, 0xFFFFFFFF);
+            }
+        }
+
+        // Метка
+        int labelWidth = textRenderer.getWidth(Text.literal(label + ":"));
+        ctx.drawText(textRenderer, label + ":", x - labelWidth - 5, y + 4, 0xFFFFFF, false);
+    }
+
+    private boolean isClickOnField(int mx, int my, int x, int y) {
+        return mx >= x && mx < x + 80 && my >= y && my < y + 16;
+    }
+
+    private boolean isMouseOverField(int mx, int my, int x, int y) {
+        return mx >= x && mx < x + 80 && my >= y && my < y + 16;
+    }
+
+    private void applyEditingValue() {
+        if (editingField == null || editingValue.length() == 0) return;
+        try {
+            int value = Integer.parseInt(editingValue.toString());
+            switch (editingField) {
+                case "outer" -> liveConfig.outerRingOuterRadius = MathHelper.clamp(value, 50, 350);
+                case "inner" -> liveConfig.innerRingInnerRadius = MathHelper.clamp(value, 10, 200);
+            }
+        } catch (NumberFormatException ignored) {}
+        editingField = null;
     }
 
     private static class SectorAngles {
