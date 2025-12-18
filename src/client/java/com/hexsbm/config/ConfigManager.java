@@ -20,7 +20,7 @@ public class ConfigManager {
         if (!loaded) {
             load();
         }
-        return savedConfig.copy(); // всегда возвращаем копию!
+        return savedConfig.copy(); // ✅ теперь работает
     }
 
     public static void saveConfig(HexSBMConfig config) {
@@ -29,7 +29,7 @@ public class ConfigManager {
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
             String json = gson.toJson(config);
             Files.writeString(CONFIG_PATH, json);
-            savedConfig = config.copy(); // обновляем кэш
+            savedConfig = config.copy(); // ✅ обновляем кэш
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -39,11 +39,13 @@ public class ConfigManager {
         try {
             if (Files.exists(CONFIG_PATH)) {
                 String json = Files.readString(CONFIG_PATH);
-                savedConfig = new Gson().fromJson(json, HexSBMConfig.class);
-                // Защита от битого JSON
-                if (savedConfig == null) savedConfig = new HexSBMConfig();
+                HexSBMConfig loadedConfig = new Gson().fromJson(json, HexSBMConfig.class);
+                if (loadedConfig != null) {
+                    savedConfig = loadedConfig;
+                } else {
+                    savedConfig = new HexSBMConfig();
+                }
             } else {
-                // Создаём дефолтный, если нет файла
                 saveConfig(new HexSBMConfig());
             }
             loaded = true;
