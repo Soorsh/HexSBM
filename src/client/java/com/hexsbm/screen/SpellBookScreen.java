@@ -31,7 +31,7 @@ public class SpellBookScreen extends Screen {
     private int centralGroup = 0, originalPageIdx = -1;
     private HexSBMConfig liveConfig;
     private ColorScheme colorScheme;
-    private ConfigPanel configPanel = new ConfigPanel(); // ← новое поле
+    private ConfigPanel configPanel; // ← инициализируем позже
 
     public SpellBookScreen() {
         super(Text.empty());
@@ -77,6 +77,9 @@ public class SpellBookScreen extends Screen {
         if (originalPageIdx != -1) {
             centralGroup = Math.max(0, Math.min(7, (originalPageIdx - 1) / GROUP_SIZE));
         }
+
+        // 🔥 Инициализируем ConfigPanel здесь, когда liveConfig уже готов
+        this.configPanel = new ConfigPanel(this.liveConfig);
     }
 
     @Override
@@ -144,10 +147,8 @@ public class SpellBookScreen extends Screen {
             ctx.drawItem(SpellbookNbtManager.getGroupIcon(book, i), (int)(cx + r * Math.cos(ang.mid)) - 8, (int)(cy + r * Math.sin(ang.mid)) - 8);
         }
 
-        // Settings panel
-        if (configPanel.isEditing()) {
-            configPanel.render(ctx, panelX(), liveConfig, textRenderer, mx, my);
-        }
+        // === ОТОБРАЖАЕМ ПАНЕЛЬ ВСЕГДА ===
+        configPanel.render(ctx, panelX(), liveConfig, textRenderer, mx, my);
     }
 
     @Override
@@ -229,9 +230,8 @@ public class SpellBookScreen extends Screen {
     @Override
     public void close() {
         configPanel.close(liveConfig);
-        if (configPanel.isEditing()) {
-            ConfigManager.saveConfig(this.liveConfig);
-        }
+        // Сохраняем конфиг при закрытии
+        ConfigManager.saveConfig(this.liveConfig);
         if (client != null) client.setScreen(null);
     }
 
