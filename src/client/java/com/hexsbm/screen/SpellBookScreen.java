@@ -162,8 +162,7 @@ public class SpellBookScreen extends Screen {
         int px = panelX();
 
         if (mx > px) {
-            // Передаём управление панели
-            return configPanel.mouseClicked(mx, my, px, liveConfig);
+            return configPanel.mouseClicked(mx, my, px, liveConfig, this.textRenderer);
         }
 
         int cx = (int)(width * liveConfig.centerX);

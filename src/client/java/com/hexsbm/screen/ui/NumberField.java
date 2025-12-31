@@ -1,4 +1,3 @@
-// com/hexsbm/screen/ui/NumberField.java
 package com.hexsbm.screen.ui;
 
 import net.minecraft.client.font.TextRenderer;
@@ -7,7 +6,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 import org.lwjgl.glfw.GLFW;
 
-public class NumberField {
+public class NumberField implements ConfigControl {
     private final int x, y;
     private final String label;
     private final boolean isOffset;
@@ -50,7 +49,8 @@ public class NumberField {
         ctx.drawText(textRenderer, label + ":", sx - lw - 5, y + 4, 0xFFFFFF, false);
     }
 
-    public boolean mouseClicked(int mx, int my, int panelX) {
+    @Override
+    public boolean mouseClicked(int mx, int my, int panelX, TextRenderer textRenderer) {
         int sx = panelX + x;
         if (mx >= sx && mx < sx + 80 && my >= y && my < y + 16) {
             editing = true;

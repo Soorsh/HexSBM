@@ -1,11 +1,13 @@
+// com/hexsbm/config/HexSBMConfig.java
 package com.hexsbm.config;
 
+import net.minecraft.util.math.MathHelper;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 public class HexSBMConfig {
-    // === Позиция и размеры ===
+    // === Позиция и размеры (остаются public для ConfigLib) ===
     public float centerX = 0.5f;
     public float centerY = 0.5f;
     public int innerRingInnerRadius = 30;
@@ -24,7 +26,7 @@ public class HexSBMConfig {
     public boolean enableTooltips = true;
     public boolean closeOnBackgroundClick = true;
 
-    // === Цветовые поправки (lighten/darken) ===
+    // === Цветовые поправки ===
     public float activeLighten = 0.15f;
     public float hoverLighten = 0.25f;
     public float inactiveLighten = 0.10f;
@@ -38,7 +40,7 @@ public class HexSBMConfig {
     public int patternTooltipLineIndex = 2;
     public int minTooltipLinesForPattern = 3;
 
-    // === NBT-теги для иконок ===
+    // === NBT-теги ===
     public List<String> visualNbtTags = Arrays.asList(
         "hexcasting:pattern_data",
         "hexcasting:amulet_state",
@@ -61,9 +63,70 @@ public class HexSBMConfig {
     public boolean usePigmentColor = true;
     public int uiBaseColor = 0xFFFFFFFF;
 
+    // =============== ГЕТТЕРЫ ===============
+    public int getInnerRingInnerRadius() { return innerRingInnerRadius; }
+    public int getInnerRingOuterRadius() { return innerRingOuterRadius; }
+    public int getOuterRingInnerRadius() { return outerRingInnerRadius; }
+    public int getOuterRingOuterRadius() { return outerRingOuterRadius; }
+    public int getInnerIconRadiusOffset() { return innerIconRadiusOffset; }
+    public int getOuterIconRadiusOffset() { return outerIconRadiusOffset; }
+    public boolean isUsePigmentColor() { return usePigmentColor; }
+
+    // =============== СЕТТЕРЫ С ВАЛИДАЦИЕЙ ===============
+    public void setInnerRingInnerRadius(int v) {
+        this.innerRingInnerRadius = MathHelper.clamp(v, 0, MAX_RADIUS);
+        enforceRingOrder();
+    }
+
+    public void setInnerRingOuterRadius(int v) {
+        this.innerRingOuterRadius = MathHelper.clamp(v, 0, MAX_RADIUS);
+        enforceRingOrder();
+    }
+
+    public void setOuterRingInnerRadius(int v) {
+        this.outerRingInnerRadius = MathHelper.clamp(v, 0, MAX_RADIUS);
+        enforceRingOrder();
+    }
+
+    public void setOuterRingOuterRadius(int v) {
+        this.outerRingOuterRadius = MathHelper.clamp(v, 0, MAX_RADIUS);
+        enforceRingOrder();
+    }
+
+    public void setInnerIconRadiusOffset(int v) {
+        this.innerIconRadiusOffset = MathHelper.clamp(v, -MAX_OFFSET, MAX_OFFSET);
+    }
+
+    public void setOuterIconRadiusOffset(int v) {
+        this.outerIconRadiusOffset = MathHelper.clamp(v, -MAX_OFFSET, MAX_OFFSET);
+    }
+
+    public void setUsePigmentColor(boolean v) {
+        this.usePigmentColor = v;
+    }
+
+    // =============== АВТО-СОГЛАСОВАНИЕ КОЛЕЦ ===============
+    private void enforceRingOrder() {
+        // Шаг 1: убедимся, что все ≥ 0 и ≤ MAX_RADIUS (уже сделано в сеттерах, но на всякий)
+        innerRingInnerRadius = MathHelper.clamp(innerRingInnerRadius, 0, MAX_RADIUS);
+        innerRingOuterRadius = MathHelper.clamp(innerRingOuterRadius, 0, MAX_RADIUS);
+        outerRingInnerRadius = MathHelper.clamp(outerRingInnerRadius, 0, MAX_RADIUS);
+        outerRingOuterRadius = MathHelper.clamp(outerRingOuterRadius, 0, MAX_RADIUS);
+
+        // Шаг 2: установим логический порядок
+        // Внутреннее кольцо: innerIn ≤ innerOut
+        innerRingOuterRadius = Math.max(innerRingInnerRadius, innerRingOuterRadius);
+        // Внешнее кольцо начинается не раньше конца внутреннего
+        outerRingInnerRadius = Math.max(innerRingOuterRadius, outerRingInnerRadius);
+        // Внешнее кольцо: outerIn ≤ outerOut
+        outerRingOuterRadius = Math.max(outerRingInnerRadius, outerRingOuterRadius);
+    }
+
+    // =============== ОСТАЛЬНОЕ ===============
     public HexSBMConfig() {}
 
     public void copyFrom(HexSBMConfig other) {
+        // ... (оставь как есть — он копирует напрямую, что OK при загрузке)
         this.centerX = other.centerX;
         this.centerY = other.centerY;
         this.innerRingInnerRadius = other.innerRingInnerRadius;
@@ -91,33 +154,9 @@ public class HexSBMConfig {
     }
 
     public void resetToDefault() {
-        HexSBMConfig def = new HexSBMConfig();
-        this.centerX = def.centerX;
-        this.centerY = def.centerY;
-        this.innerRingInnerRadius = def.innerRingInnerRadius;
-        this.innerRingOuterRadius = def.innerRingOuterRadius;
-        this.outerRingInnerRadius = def.outerRingInnerRadius;
-        this.outerRingOuterRadius = def.outerRingOuterRadius;
-        this.innerIconRadiusOffset = def.innerIconRadiusOffset;
-        this.outerIconRadiusOffset = def.outerIconRadiusOffset;
-        this.activeAlpha = def.activeAlpha;
-        this.hoverAlpha = def.hoverAlpha;
-        this.inactiveAlpha = def.inactiveAlpha;
-        this.enableTooltips = def.enableTooltips;
-        this.closeOnBackgroundClick = def.closeOnBackgroundClick;
-        this.activeLighten = def.activeLighten;
-        this.hoverLighten = def.hoverLighten;
-        this.inactiveLighten = def.inactiveLighten;
-        this.inactiveDarken = def.inactiveDarken;
-        this.innerOuterActiveLighten = def.innerOuterActiveLighten;
-        this.segmentResolution = def.segmentResolution;
-        this.patternTooltipLineIndex = def.patternTooltipLineIndex;
-        this.minTooltipLinesForPattern = def.minTooltipLinesForPattern;
-        this.visualNbtTags = def.visualNbtTags;
-        this.usePigmentColor = def.usePigmentColor;
-        this.uiBaseColor = def.uiBaseColor;
+        copyFrom(new HexSBMConfig());
     }
-    
+
     public HexSBMConfig copy() {
         HexSBMConfig c = new HexSBMConfig();
         c.copyFrom(this);
