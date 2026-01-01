@@ -36,9 +36,6 @@ public class SpellBookScreen extends Screen {
     private ColorScheme colorScheme;
     private ConfigPanel configPanel;
 
-    // === Управление меню ===
-    private static final int MENU_KEY = GLFW.GLFW_KEY_V;
-
     // === Конфиг-панель ===
     private boolean configPanelFullyOpen = false;
     private static final int HOVER_ZONE_WIDTH = 40;
