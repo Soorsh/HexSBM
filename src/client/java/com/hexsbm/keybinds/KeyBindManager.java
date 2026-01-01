@@ -14,28 +14,29 @@ import com.hexsbm.screen.SpellBookScreen;
 
 @Environment(EnvType.CLIENT)
 public class KeyBindManager {
-
     private static final Identifier SPELLBOOK_ID = new Identifier("hexcasting", "spellbook");
+    public static KeyBinding SPELLBOOK_KEYBIND;
 
     public static void registerKeyBinds() {
-        KeyBinding keyBinding = KeyBindingHelper.registerKeyBinding(
-            new KeyBinding(
-                "key.hexsbm.spellbook_menu",
-                InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_V,
-                "category.hexsbm.binds"
-            )
+        SPELLBOOK_KEYBIND = new KeyBinding(
+            "key.hexsbm.spellbook_menu",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_V,
+            "category.hexsbm.binds"
         );
+        KeyBindingHelper.registerKeyBinding(SPELLBOOK_KEYBIND);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (!keyBinding.wasPressed()) return;
+            if (!SPELLBOOK_KEYBIND.wasPressed()) return;
             if (client.player == null) return;
+            // ← ДОБАВЬ ЭТУ ПРОВЕРКУ:
+            if (client.currentScreen instanceof SpellBookScreen) return;
 
             ItemStack main = client.player.getMainHandStack();
             ItemStack off = client.player.getOffHandStack();
 
             boolean hasSpellbook = (!main.isEmpty() && Registries.ITEM.getId(main.getItem()).equals(SPELLBOOK_ID))
-                                 || (!off.isEmpty() && Registries.ITEM.getId(off.getItem()).equals(SPELLBOOK_ID));
+                                || (!off.isEmpty() && Registries.ITEM.getId(off.getItem()).equals(SPELLBOOK_ID));
 
             if (hasSpellbook) {
                 client.setScreen(new SpellBookScreen());

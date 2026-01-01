@@ -13,7 +13,7 @@ public class ConfigPanel {
     private final List<ConfigControl> controls;
     private final HexSBMConfig config;
     private int scrollY = 0;
-    private static final int CONTENT_HEIGHT = 540; // y последнего элемента + отступ
+    private static final int CONTENT_HEIGHT = 560; // чуть увеличено
 
     public ConfigPanel(HexSBMConfig config) {
         this.config = config;
@@ -82,12 +82,15 @@ public class ConfigPanel {
         controls.add(new LabelControl("Поведение", 410, 0xAAAAAA));
         controls.add(new ToggleField(10, 430, "Тултипы", config::isEnableTooltips, config::setEnableTooltips));
         controls.add(new ToggleField(10, 450, "Закрывать по клику", config::isCloseOnBackgroundClick, config::setCloseOnBackgroundClick));
-        // TODO: "Открывать по зажатию"
+        controls.add(new CycleField(10, 470, "Открытие меню",
+            List.of("По зажатию", "По клику"),
+            config::getMenuOpenMode,
+            config::setMenuOpenMode));
 
         // === Сброс ===
-        controls.add(new LabelControl("Сброс", 480, 0xAAAAAA));
-        controls.add(new Button(10, 500, "Сбросить всё", 0xFF6666, this::resetToDefaults));
-        controls.add(new Button(10, 520, "Сбросить до моего", 0x66FF66, this::reloadFromDisk));
+        controls.add(new LabelControl("Сброс", 500, 0xAAAAAA));
+        controls.add(new Button(10, 520, "Сбросить всё", 0xFF6666, this::resetToDefaults));
+        controls.add(new Button(10, 540, "Сбросить до моего", 0x66FF66, this::reloadFromDisk));
     }
 
     public void render(DrawContext ctx, int px, HexSBMConfig config, TextRenderer textRenderer, int mx, int my) {
@@ -97,12 +100,10 @@ public class ConfigPanel {
         ctx.fill(px, 0, px + 1, panelHeight, 0xFFFFFFFF);
         ctx.fill(px + 219, 0, px + 220, panelHeight, 0xFFFFFFFF);
 
-        // Заголовок
         ctx.drawText(textRenderer, "Настройки UI", px + 10, 5 - scrollY, 0xFFFFFF, false);
 
-        // Рендер всех контролов
         for (var control : controls) {
-            control.render(ctx, textRenderer, mx, my, px, scrollY); // ← передаём scrollY
+            control.render(ctx, textRenderer, mx, my, px, scrollY);
         }
     }
 
@@ -113,7 +114,7 @@ public class ConfigPanel {
         boolean clickedOnControl = false;
 
         for (var control : controls) {
-            if (control.mouseClicked(mx, my, px, textRenderer, scrollY)) { // ← передаём scrollY
+            if (control.mouseClicked(mx, my, px, textRenderer, scrollY)) {
                 for (var c : controls) {
                     if (c != control) c.finishEditing();
                 }
@@ -145,11 +146,9 @@ public class ConfigPanel {
     public boolean mouseScrolled(int mx, int my, double amount, int px, HexSBMConfig config, int windowHeight) {
         if (mx <= px) return false;
 
-        // Проверяем, над каким NumberField находится курсор С УЧЁТОМ SCROLLY
         for (var control : controls) {
             if (control instanceof NumberField field) {
                 if (field.isMouseOver(mx, my, px, scrollY)) {
-                    // Применяем скролл прямо здесь
                     int step = amount > 0 ? 1 : -1;
                     int newValue = field.getter.getAsInt() + step;
 
@@ -169,7 +168,6 @@ public class ConfigPanel {
             }
         }
 
-        // Если не над полем — скроллим панель
         int maxScroll = Math.max(0, CONTENT_HEIGHT - windowHeight);
         scrollY = MathHelper.clamp(scrollY - (int)(amount * 10), 0, maxScroll);
         return true;

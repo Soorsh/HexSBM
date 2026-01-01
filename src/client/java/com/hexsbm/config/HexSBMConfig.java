@@ -6,7 +6,7 @@ import java.util.Arrays;
 import java.util.List;
 
 public class HexSBMConfig {
-    // === Позиция и размеры (остаются public для ConfigLib) ===
+    // === Позиция и размеры ===
     public float centerX = 0.5f;
     public float centerY = 0.5f;
     public int innerRingInnerRadius = 30;
@@ -65,6 +65,11 @@ public class HexSBMConfig {
     // === Режим цвета ===
     public int colorMode = 1; // 0 = по заклинанию, 1 = всегда, 2 = никогда
 
+    // === Режим открытия МЕНЮ (не конфига!) ===
+    // 0 = По зажатию клавиши
+    // 1 = По клику (toggle)
+    public int menuOpenMode = 0;
+
     // =============== ГЕТТЕРЫ ===============
     public int getInnerRingInnerRadius() { return innerRingInnerRadius; }
     public int getInnerRingOuterRadius() { return innerRingOuterRadius; }
@@ -76,8 +81,9 @@ public class HexSBMConfig {
     public boolean isEnableTooltips() { return enableTooltips; }
     public boolean isCloseOnBackgroundClick() { return closeOnBackgroundClick; }
     public int getColorMode() { return colorMode; }
+    public int getMenuOpenMode() { return menuOpenMode; }
 
-    // =============== СЕТТЕРЫ С ВАЛИДАЦИЕЙ ===============
+    // =============== СЕТТЕРЫ ===============
     public void setInnerRingInnerRadius(int v) { this.innerRingInnerRadius = MathHelper.clamp(v, 0, MAX_RADIUS); enforceRingOrder(); }
     public void setInnerRingOuterRadius(int v) { this.innerRingOuterRadius = MathHelper.clamp(v, 0, MAX_RADIUS); enforceRingOrder(); }
     public void setOuterRingInnerRadius(int v) { this.outerRingInnerRadius = MathHelper.clamp(v, 0, MAX_RADIUS); enforceRingOrder(); }
@@ -88,29 +94,22 @@ public class HexSBMConfig {
     public void setEnableTooltips(boolean v) { this.enableTooltips = v; }
     public void setCloseOnBackgroundClick(boolean v) { this.closeOnBackgroundClick = v; }
     public void setColorMode(int v) { this.colorMode = MathHelper.clamp(v, 0, 2); }
+    public void setMenuOpenMode(int v) { this.menuOpenMode = MathHelper.clamp(v, 0, 1); }
 
-    // =============== АВТО-СОГЛАСОВАНИЕ КОЛЕЦ ===============
     private void enforceRingOrder() {
-        // Шаг 1: убедимся, что все ≥ 0 и ≤ MAX_RADIUS (уже сделано в сеттерах, но на всякий)
         innerRingInnerRadius = MathHelper.clamp(innerRingInnerRadius, 0, MAX_RADIUS);
         innerRingOuterRadius = MathHelper.clamp(innerRingOuterRadius, 0, MAX_RADIUS);
         outerRingInnerRadius = MathHelper.clamp(outerRingInnerRadius, 0, MAX_RADIUS);
         outerRingOuterRadius = MathHelper.clamp(outerRingOuterRadius, 0, MAX_RADIUS);
 
-        // Шаг 2: установим логический порядок
-        // Внутреннее кольцо: innerIn ≤ innerOut
         innerRingOuterRadius = Math.max(innerRingInnerRadius, innerRingOuterRadius);
-        // Внешнее кольцо начинается не раньше конца внутреннего
         outerRingInnerRadius = Math.max(innerRingOuterRadius, outerRingInnerRadius);
-        // Внешнее кольцо: outerIn ≤ outerOut
         outerRingOuterRadius = Math.max(outerRingInnerRadius, outerRingOuterRadius);
     }
 
-    // =============== ОСТАЛЬНОЕ ===============
     public HexSBMConfig() {}
 
     public void copyFrom(HexSBMConfig other) {
-        // ... (оставь как есть — он копирует напрямую, что OK при загрузке)
         this.centerX = other.centerX;
         this.centerY = other.centerY;
         this.innerRingInnerRadius = other.innerRingInnerRadius;
@@ -135,6 +134,8 @@ public class HexSBMConfig {
         this.visualNbtTags = new ArrayList<>(other.visualNbtTags);
         this.usePigmentColor = other.usePigmentColor;
         this.uiBaseColor = other.uiBaseColor;
+        this.colorMode = other.colorMode;
+        this.menuOpenMode = other.menuOpenMode; // ← добавлено
     }
 
     public void resetToDefault() {
