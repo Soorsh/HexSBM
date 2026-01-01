@@ -198,18 +198,19 @@ public class SpellBookScreen extends Screen {
         int mx = (int) mouseX, my = (int) mouseY;
         int realPanelX = width - PANEL_WIDTH;
 
-        // === 1. Если панель ОТКРЫТА — клик по ней или закрытие ===
+        // === 1. Если панель ОТКРЫТА ===
         if (configPanelFullyOpen) {
             if (mx >= realPanelX) {
-                if (configPanel.mouseClicked(mx, my, realPanelX, liveConfig, this.textRenderer)) {
-                    return true;
-                }
+                // Клик внутри панели — передаём управление, но НЕ закрываем в любом случае
+                configPanel.mouseClicked(mx, my, realPanelX, liveConfig, this.textRenderer);
+                return true; // даже если мимо элементов — всё равно это "внутри панели"
+            } else {
+                // Клик СЛЕВА от панели — значит, по фону → закрываем панель
+                configPanel.close(liveConfig);
+                ConfigManager.saveConfig(liveConfig);
+                configPanelFullyOpen = false;
+                return true;
             }
-            // Клик вне панели → закрываем только панель
-            configPanel.close(liveConfig);
-            ConfigManager.saveConfig(liveConfig);
-            configPanelFullyOpen = false;
-            return true;
         }
 
         // === 2. Панель ЗАКРЫТА — проверяем кольца ===
