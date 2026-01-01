@@ -1,4 +1,3 @@
-// com/hexsbm/config/HexSBMConfig.java
 package com.hexsbm.config;
 
 import net.minecraft.util.math.MathHelper;
@@ -63,6 +62,9 @@ public class HexSBMConfig {
     public boolean usePigmentColor = true;
     public int uiBaseColor = 0xFFFFFFFF;
 
+    // === Режим цвета ===
+    public int colorMode = 1; // 0 = по заклинанию, 1 = всегда, 2 = никогда
+
     // =============== ГЕТТЕРЫ ===============
     public int getInnerRingInnerRadius() { return innerRingInnerRadius; }
     public int getInnerRingOuterRadius() { return innerRingOuterRadius; }
@@ -71,39 +73,21 @@ public class HexSBMConfig {
     public int getInnerIconRadiusOffset() { return innerIconRadiusOffset; }
     public int getOuterIconRadiusOffset() { return outerIconRadiusOffset; }
     public boolean isUsePigmentColor() { return usePigmentColor; }
+    public boolean isEnableTooltips() { return enableTooltips; }
+    public boolean isCloseOnBackgroundClick() { return closeOnBackgroundClick; }
+    public int getColorMode() { return colorMode; }
 
     // =============== СЕТТЕРЫ С ВАЛИДАЦИЕЙ ===============
-    public void setInnerRingInnerRadius(int v) {
-        this.innerRingInnerRadius = MathHelper.clamp(v, 0, MAX_RADIUS);
-        enforceRingOrder();
-    }
-
-    public void setInnerRingOuterRadius(int v) {
-        this.innerRingOuterRadius = MathHelper.clamp(v, 0, MAX_RADIUS);
-        enforceRingOrder();
-    }
-
-    public void setOuterRingInnerRadius(int v) {
-        this.outerRingInnerRadius = MathHelper.clamp(v, 0, MAX_RADIUS);
-        enforceRingOrder();
-    }
-
-    public void setOuterRingOuterRadius(int v) {
-        this.outerRingOuterRadius = MathHelper.clamp(v, 0, MAX_RADIUS);
-        enforceRingOrder();
-    }
-
-    public void setInnerIconRadiusOffset(int v) {
-        this.innerIconRadiusOffset = MathHelper.clamp(v, -MAX_OFFSET, MAX_OFFSET);
-    }
-
-    public void setOuterIconRadiusOffset(int v) {
-        this.outerIconRadiusOffset = MathHelper.clamp(v, -MAX_OFFSET, MAX_OFFSET);
-    }
-
-    public void setUsePigmentColor(boolean v) {
-        this.usePigmentColor = v;
-    }
+    public void setInnerRingInnerRadius(int v) { this.innerRingInnerRadius = MathHelper.clamp(v, 0, MAX_RADIUS); enforceRingOrder(); }
+    public void setInnerRingOuterRadius(int v) { this.innerRingOuterRadius = MathHelper.clamp(v, 0, MAX_RADIUS); enforceRingOrder(); }
+    public void setOuterRingInnerRadius(int v) { this.outerRingInnerRadius = MathHelper.clamp(v, 0, MAX_RADIUS); enforceRingOrder(); }
+    public void setOuterRingOuterRadius(int v) { this.outerRingOuterRadius = MathHelper.clamp(v, 0, MAX_RADIUS); enforceRingOrder(); }
+    public void setInnerIconRadiusOffset(int v) { this.innerIconRadiusOffset = MathHelper.clamp(v, -MAX_OFFSET, MAX_OFFSET); }
+    public void setOuterIconRadiusOffset(int v) { this.outerIconRadiusOffset = MathHelper.clamp(v, -MAX_OFFSET, MAX_OFFSET); }
+    public void setUsePigmentColor(boolean v) { this.usePigmentColor = v; }
+    public void setEnableTooltips(boolean v) { this.enableTooltips = v; }
+    public void setCloseOnBackgroundClick(boolean v) { this.closeOnBackgroundClick = v; }
+    public void setColorMode(int v) { this.colorMode = MathHelper.clamp(v, 0, 2); }
 
     // =============== АВТО-СОГЛАСОВАНИЕ КОЛЕЦ ===============
     private void enforceRingOrder() {

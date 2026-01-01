@@ -19,15 +19,17 @@ public class Button implements ConfigControl {
     }
 
     @Override
-    public void render(DrawContext ctx, TextRenderer textRenderer, int mx, int my, int panelX) {
-        ctx.drawText(textRenderer, label, panelX + x, y, color, false);
+    public void render(DrawContext ctx, TextRenderer textRenderer, int mx, int my, int panelX, int scrollY) {
+        int yScreen = y - scrollY;
+        ctx.drawText(textRenderer, label, panelX + x, yScreen, color, false);
     }
 
     @Override
-    public boolean mouseClicked(int mx, int my, int panelX, TextRenderer textRenderer) {
+    public boolean mouseClicked(int mx, int my, int panelX, TextRenderer textRenderer, int scrollY) {
+        int yScreen = y - scrollY;
         int sx = panelX + x;
-        int textW = textRenderer.getWidth(Text.literal(label)); // ← теперь textRenderer доступен
-        if (mx >= sx && mx <= sx + textW && my >= y && my <= y + 12) {
+        int textW = textRenderer.getWidth(Text.literal(label));
+        if (mx >= sx && mx <= sx + textW && my >= yScreen && my <= yScreen + 12) {
             action.run();
             return true;
         }

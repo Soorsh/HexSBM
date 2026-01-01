@@ -26,6 +26,8 @@ public class SpellBookScreen extends Screen {
     private static final int GROUPS = 8, GROUP_SIZE = 8, TOTAL_PAGES = 64;
     private static final int PANEL_WIDTH = 220;
 
+    private int lastUiColor = 0;
+    private boolean lastUsePigment = false;
     private int pigmentColor = 0xFFFFFFFF;
     private Hand activeHand = null;
     private int centralGroup = 0, originalPageIdx = -1;
@@ -102,6 +104,29 @@ public class SpellBookScreen extends Screen {
         int currentPage = book.isEmpty() ? 1 : SpellbookNbtManager.getPage(book);
         int cx = (int)(width * liveConfig.centerX);
         int cy = (int)(height * liveConfig.centerY);
+
+        // Обновляем pigmentColor в реальном времени, если включён авто-цвет
+        if (liveConfig.usePigmentColor && client != null && client.player != null) {
+            ClientPlayerEntity p = client.player;
+            NbtCompound cc = p.writeNbt(new NbtCompound()).getCompound("cardinal_components");
+            if (cc.contains("hexcasting:favored_pigment", 10)) {
+                NbtCompound pigment = cc.getCompound("hexcasting:favored_pigment");
+                if (pigment.contains("pigment", 10)) {
+                    String id = pigment.getCompound("pigment").getCompound("stack").getString("id");
+                    this.pigmentColor = PigmentColorRegistry.getColor(id);
+                }
+            }
+        }
+
+        // Определяем текущий цвет
+        int currentColor = liveConfig.usePigmentColor ? this.pigmentColor : liveConfig.uiBaseColor;
+
+        // Обновляем цветовую схему, если что-то изменилось
+        if (currentColor != lastUiColor || liveConfig.usePigmentColor != lastUsePigment) {
+            this.lastUiColor = currentColor;
+            this.lastUsePigment = liveConfig.usePigmentColor;
+            this.colorScheme = new ColorScheme(currentColor, liveConfig);
+        }
 
         // Outer ring — pages
         for (int i = 0; i < GROUPS; i++) {
@@ -251,10 +276,12 @@ public class SpellBookScreen extends Screen {
         int mx = (int) mouseX, my = (int) mouseY;
         int px = panelX();
 
-        if (configPanel.mouseScrolled(mx, my, amount, px, liveConfig)) {
-            return true;
+        // Если мышь над панелью настроек — обрабатываем ТОЛЬКО панель
+        if (mx > px) {
+            return configPanel.mouseScrolled(mx, my, amount, px, liveConfig, this.height);
         }
 
+        // Иначе — стандартное поведение (смена слота)
         if (client == null || client.player == null || activeHand == null) return false;
         if (activeHand == Hand.OFF_HAND) {
             PlayerInventory inv = client.player.getInventory();
