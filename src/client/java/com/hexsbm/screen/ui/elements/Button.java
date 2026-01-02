@@ -1,44 +1,36 @@
-package com.hexsbm.screen.ui;
+package com.hexsbm.screen.ui.elements;
 
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
 
-import java.util.function.BooleanSupplier;
-import java.util.function.Consumer;
-
-public class ToggleField implements ConfigControl {
+public class Button implements ConfigControl {
     private final int x, y;
     private final String label;
-    private final BooleanSupplier getter;
-    private final Consumer<Boolean> setter;
+    private final int color;
+    private final Runnable action;
 
-    public ToggleField(int x, int y, String label, BooleanSupplier getter, Consumer<Boolean> setter) {
+    public Button(int x, int y, String label, int color, Runnable action) {
         this.x = x;
         this.y = y;
         this.label = label;
-        this.getter = getter;
-        this.setter = setter;
+        this.color = color;
+        this.action = action;
     }
 
     @Override
     public void render(DrawContext ctx, TextRenderer textRenderer, int mx, int my, int panelX, int scrollY) {
         int yScreen = y - scrollY;
-        boolean value = getter.getAsBoolean();
-        int color = value ? 0x66FF66 : 0xFF6666;
-        String text = label + ": " + (value ? "Да" : "Нет");
-        ctx.drawText(textRenderer, text, panelX + x, yScreen, color, false);
+        ctx.drawText(textRenderer, label, panelX + x, yScreen, color, false);
     }
 
     @Override
     public boolean mouseClicked(int mx, int my, int panelX, TextRenderer textRenderer, int scrollY) {
         int yScreen = y - scrollY;
-        boolean value = getter.getAsBoolean();
-        String text = label + ": " + (value ? "Да" : "Нет");
         int sx = panelX + x;
-        int textW = textRenderer.getWidth(Text.literal(text));
+        int textW = textRenderer.getWidth(Text.literal(label));
         if (mx >= sx && mx <= sx + textW && my >= yScreen && my <= yScreen + 12) {
-            setter.accept(!value);
+            action.run();
             return true;
         }
         return false;

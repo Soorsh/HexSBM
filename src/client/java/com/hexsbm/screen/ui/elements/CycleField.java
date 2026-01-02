@@ -1,5 +1,5 @@
 // com/hexsbm/screen/ui/CycleField.java
-package com.hexsbm.screen.ui;
+package com.hexsbm.screen.ui.elements;
 
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
