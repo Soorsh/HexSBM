@@ -14,33 +14,64 @@ public class ColorScheme {
 
     public int getOuterInnerColor(boolean cur, boolean hover) {
         int alpha = cur ? config.activeAlpha : hover ? config.hoverAlpha : config.inactiveAlpha;
-        int rgb = cur || hover
-            ? lighten(pigmentColor, config.activeLighten)
-            : darken(pigmentColor, config.inactiveDarken);
+        int rgb = getRgbForState(cur, hover, false, false);
         return mkColor(alpha, rgb);
     }
 
     public int getOuterOuterColor(boolean cur, boolean hover) {
         int alpha = cur ? config.activeAlpha : hover ? config.hoverAlpha : config.inactiveAlpha;
-        int rgb = cur || hover
-            ? lighten(pigmentColor, config.activeLighten)
-            : lighten(pigmentColor, config.inactiveLighten);
+        int rgb = getRgbForState(cur, hover, false, true);
         return mkColor(alpha, rgb);
     }
 
     public int getInnerInnerColor(boolean cur, boolean hover) {
         int alpha = cur ? config.activeAlpha : hover ? config.hoverAlpha : config.inactiveAlpha;
-        return mkColor(alpha, lighten(pigmentColor, config.inactiveLighten));
+        int rgb = getRgbForState(cur, hover, true, false);
+        return mkColor(alpha, rgb);
     }
 
     public int getInnerOuterColor(boolean cur, boolean hover) {
         int alpha = cur ? config.activeAlpha : hover ? config.hoverAlpha : config.inactiveAlpha;
-        if (cur) {
-            return mkColor(alpha, lighten(pigmentColor, config.innerOuterActiveLighten));
-        } else if (hover) {
-            return mkColor(alpha, lighten(pigmentColor, config.hoverLighten));
+        int rgb = getRgbForState(cur, hover, true, true);
+        return mkColor(alpha, rgb);
+    }
+
+    private int getRgbForState(boolean cur, boolean hover, boolean isInner, boolean isOuterEdge) {
+        if (config.disableGradient) {
+            // Единый цвет для всех — выбираем логику, близкую к outer-outer
+            if (cur) {
+                return lighten(pigmentColor, config.activeLighten);
+            } else if (hover) {
+                return lighten(pigmentColor, config.hoverLighten);
+            } else {
+                // Для неактивного — используем inactiveLighten (мягче, чем darken)
+                return lighten(pigmentColor, config.inactiveLighten);
+            }
         } else {
-            return mkColor(alpha, darken(pigmentColor, config.inactiveDarken));
+            // Оригинальная логика
+            if (isInner) {
+                if (isOuterEdge) { // innerOuter
+                    if (cur) {
+                        return lighten(pigmentColor, config.innerOuterActiveLighten);
+                    } else if (hover) {
+                        return lighten(pigmentColor, config.hoverLighten);
+                    } else {
+                        return darken(pigmentColor, config.inactiveDarken);
+                    }
+                } else { // innerInner
+                    return lighten(pigmentColor, config.inactiveLighten);
+                }
+            } else {
+                if (isOuterEdge) { // outerOuter
+                    return cur || hover
+                        ? lighten(pigmentColor, config.activeLighten)
+                        : lighten(pigmentColor, config.inactiveLighten);
+                } else { // outerInner
+                    return cur || hover
+                        ? lighten(pigmentColor, config.activeLighten)
+                        : darken(pigmentColor, config.inactiveDarken);
+                }
+            }
         }
     }
 

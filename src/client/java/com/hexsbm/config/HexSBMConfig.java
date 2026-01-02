@@ -65,6 +65,9 @@ public class HexSBMConfig {
     // === Режим цвета ===
     public int colorMode = 1; // 0 = по заклинанию, 1 = всегда, 2 = никогда
 
+    // === Отключение градиента ===
+    public boolean disableGradient = false;
+
     // === Режим открытия МЕНЮ (не конфига!) ===
     // 0 = По зажатию клавиши
     // 1 = По клику (toggle)
@@ -82,6 +85,7 @@ public class HexSBMConfig {
     public boolean isCloseOnBackgroundClick() { return closeOnBackgroundClick; }
     public int getColorMode() { return colorMode; }
     public int getMenuOpenMode() { return menuOpenMode; }
+    public boolean isDisableGradient() { return disableGradient; }
 
     // =============== СЕТТЕРЫ ===============
     public void setInnerRingInnerRadius(int v) { this.innerRingInnerRadius = MathHelper.clamp(v, 0, MAX_RADIUS); enforceRingOrder(); }
@@ -95,6 +99,7 @@ public class HexSBMConfig {
     public void setCloseOnBackgroundClick(boolean v) { this.closeOnBackgroundClick = v; }
     public void setColorMode(int v) { this.colorMode = MathHelper.clamp(v, 0, 2); }
     public void setMenuOpenMode(int v) { this.menuOpenMode = MathHelper.clamp(v, 0, 1); }
+    public void setDisableGradient(boolean v) { this.disableGradient = v; }
 
     private void enforceRingOrder() {
         innerRingInnerRadius = MathHelper.clamp(innerRingInnerRadius, 0, MAX_RADIUS);
@@ -135,7 +140,8 @@ public class HexSBMConfig {
         this.usePigmentColor = other.usePigmentColor;
         this.uiBaseColor = other.uiBaseColor;
         this.colorMode = other.colorMode;
-        this.menuOpenMode = other.menuOpenMode; // ← добавлено
+        this.disableGradient = other.disableGradient;
+        this.menuOpenMode = other.menuOpenMode;
     }
 
     public void resetToDefault() {

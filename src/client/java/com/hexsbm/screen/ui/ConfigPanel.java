@@ -26,6 +26,11 @@ public class ConfigPanel {
         this.config = config;
         this.controls = new ArrayList<>();
 
+        // === Сброс ===
+        controls.add(new LabelControl("Сброс", 500, 0xAAAAAA));
+        controls.add(new Button(10, 520, "Сбросить всё", 0xFF6666, this::resetToDefaults));
+        controls.add(new Button(10, 540, "Сбросить до моего", 0x66FF66, this::reloadFromDisk));
+
         // === Внешнее кольцо ===
         controls.add(new LabelControl("Внешнее кольцо", 60, 0xAAAAAA));
         controls.add(new NumberField(100, 80, "Внешний радиус",
@@ -83,7 +88,7 @@ public class ConfigPanel {
             List.of("По заклинанию", "Всегда", "Никогда"),
             config::getColorMode,
             config::setColorMode));
-        controls.add(new ToggleField(10, 380, "Без градиента", () -> false, v -> {})); // TODO
+        controls.add(new ToggleField(10, 380, "Без градиента", config::isDisableGradient, config::setDisableGradient)); // TODO
 
         // === Поведение ===
         controls.add(new LabelControl("Поведение", 410, 0xAAAAAA));
@@ -93,11 +98,6 @@ public class ConfigPanel {
             List.of("По зажатию", "По клику"),
             config::getMenuOpenMode,
             config::setMenuOpenMode));
-
-        // === Сброс ===
-        controls.add(new LabelControl("Сброс", 500, 0xAAAAAA));
-        controls.add(new Button(10, 520, "Сбросить всё", 0xFF6666, this::resetToDefaults));
-        controls.add(new Button(10, 540, "Сбросить до моего", 0x66FF66, this::reloadFromDisk));
     }
 
     public void render(DrawContext ctx, int px, HexSBMConfig config, TextRenderer textRenderer, int mx, int my) {
