@@ -20,84 +20,64 @@ public class ConfigPanel {
     private final List<ConfigControl> controls;
     private final HexSBMConfig config;
     private int scrollY = 0;
-    private static final int CONTENT_HEIGHT = 560; // чуть увеличено
+    private static final int CONTENT_HEIGHT = 750;
 
     public ConfigPanel(HexSBMConfig config) {
         this.config = config;
         this.controls = new ArrayList<>();
 
-        // === Сброс ===
-        controls.add(new LabelControl("Сброс", 500, 0xAAAAAA));
-        controls.add(new Button(10, 520, "Сбросить всё", 0xFF6666, this::resetToDefaults));
-        controls.add(new Button(10, 540, "Сбросить до моего", 0x66FF66, this::reloadFromDisk));
+        int y = 10;
 
         // === Внешнее кольцо ===
-        controls.add(new LabelControl("Внешнее кольцо", 60, 0xAAAAAA));
-        controls.add(new NumberField(100, 80, "Внешний радиус",
-            config::getOuterRingOuterRadius,
-            config::setOuterRingOuterRadius,
-            false));
-        controls.add(new NumberField(100, 100, "Начало",
-            config::getOuterRingInnerRadius,
-            config::setOuterRingInnerRadius,
-            false));
-        controls.add(new NumberField(100, 120, "Смещение",
-            config::getOuterIconRadiusOffset,
-            v -> config.setOuterIconRadiusOffset(v),
-            true));
+        controls.add(new LabelControl("Внешнее кольцо", y, 0xAAAAAA)); y += 20;
+        controls.add(new NumberField(100, y, "Внешний радиус", config::getOuterRingOuterRadius, config::setOuterRingOuterRadius, false)); y += 20;
+        controls.add(new NumberField(100, y, "Начало", config::getOuterRingInnerRadius, config::setOuterRingInnerRadius, false)); y += 20;
+        controls.add(new NumberField(100, y, "Смещение", config::getOuterIconRadiusOffset, v -> config.setOuterIconRadiusOffset(v), true)); y += 30;
 
         // === Внутреннее кольцо ===
-        controls.add(new LabelControl("Внутреннее кольцо", 150, 0xAAAAAA));
-        controls.add(new NumberField(100, 170, "Внутр. радиус",
-            config::getInnerRingInnerRadius,
-            config::setInnerRingInnerRadius,
-            false));
-        controls.add(new NumberField(100, 190, "Конец",
-            config::getInnerRingOuterRadius,
-            config::setInnerRingOuterRadius,
-            false));
-        controls.add(new NumberField(100, 210, "Смещение",
-            config::getInnerIconRadiusOffset,
-            v -> config.setInnerIconRadiusOffset(v),
-            true));
+        controls.add(new LabelControl("Внутреннее кольцо", y, 0xAAAAAA)); y += 20;
+        controls.add(new NumberField(100, y, "Внутр. радиус", config::getInnerRingInnerRadius, config::setInnerRingInnerRadius, false)); y += 20;
+        controls.add(new NumberField(100, y, "Конец", config::getInnerRingOuterRadius, config::setInnerRingOuterRadius, false)); y += 20;
+        controls.add(new NumberField(100, y, "Смещение", config::getInnerIconRadiusOffset, v -> config.setInnerIconRadiusOffset(v), true)); y += 30;
 
         // === Цвет ===
-        controls.add(new LabelControl("Цвет", 240, 0xAAAAAA));
-        controls.add(new ToggleField(10, 260, "Авто-цвет", config::isUsePigmentColor, config::setUsePigmentColor));
+        controls.add(new LabelControl("Цвет", y, 0xAAAAAA)); y += 20;
+        controls.add(new ToggleField(10, y, "Авто-цвет", config::isUsePigmentColor, config::setUsePigmentColor)); y += 20;
 
-        // ARGB-компоненты
-        controls.add(new NumberField(100, 280, "A",
-            () -> (config.uiBaseColor >> 24) & 0xFF,
-            v -> config.uiBaseColor = ((v & 0xFF) << 24) | (config.uiBaseColor & 0x00FFFFFF),
-            false));
-        controls.add(new NumberField(100, 300, "R",
-            () -> (config.uiBaseColor >> 16) & 0xFF,
-            v -> config.uiBaseColor = (config.uiBaseColor & 0xFF00FFFF) | ((v & 0xFF) << 16),
-            false));
-        controls.add(new NumberField(100, 320, "G",
-            () -> (config.uiBaseColor >> 8) & 0xFF,
-            v -> config.uiBaseColor = (config.uiBaseColor & 0xFFFF00FF) | ((v & 0xFF) << 8),
-            false));
-        controls.add(new NumberField(100, 340, "B",
-            () -> config.uiBaseColor & 0xFF,
-            v -> config.uiBaseColor = (config.uiBaseColor & 0xFFFFFF00) | (v & 0xFF),
-            false));
+        // ARGB
+        controls.add(new NumberField(100, y, "A", () -> (config.uiBaseColor >> 24) & 0xFF, v -> config.uiBaseColor = ((v & 0xFF) << 24) | (config.uiBaseColor & 0x00FFFFFF), false)); y += 20;
+        controls.add(new NumberField(100, y, "R", () -> (config.uiBaseColor >> 16) & 0xFF, v -> config.uiBaseColor = (config.uiBaseColor & 0xFF00FFFF) | ((v & 0xFF) << 16), false)); y += 20;
+        controls.add(new NumberField(100, y, "G", () -> (config.uiBaseColor >> 8) & 0xFF, v -> config.uiBaseColor = (config.uiBaseColor & 0xFFFF00FF) | ((v & 0xFF) << 8), false)); y += 20;
+        controls.add(new NumberField(100, y, "B", () -> config.uiBaseColor & 0xFF, v -> config.uiBaseColor = (config.uiBaseColor & 0xFFFFFF00) | (v & 0xFF), false)); y += 20;
 
         // Доп. настройки цвета
-        controls.add(new CycleField(10, 360, "Режим",
-            List.of("По заклинанию", "Всегда", "Никогда"),
-            config::getColorMode,
-            config::setColorMode));
-        controls.add(new ToggleField(10, 380, "Без градиента", config::isDisableGradient, config::setDisableGradient)); // TODO
+        controls.add(new CycleField(10, y, "Режим", List.of("По заклинанию", "Всегда", "Никогда"), config::getColorMode, config::setColorMode)); y += 20;
+        controls.add(new ToggleField(10, y, "Без градиента", config::isDisableGradient, config::setDisableGradient)); y += 20;
 
+        // === Градиент: Внешнее кольцо ===
+        controls.add(new LabelControl("Градиент: Внешнее", y, 0xAAAAAA)); y += 20;
+        controls.add(new NumberField(100, y, "Актив. +", () -> (int)(config.outerActiveLighten * 100), v -> config.outerActiveLighten = v / 100f, false)); y += 20;
+        controls.add(new NumberField(100, y, "Наведение +", () -> (int)(config.outerHoverLighten * 100), v -> config.outerHoverLighten = v / 100f, false)); y += 20;
+        controls.add(new NumberField(100, y, "Неакт. +", () -> (int)(config.outerInactiveLighten * 100), v -> config.outerInactiveLighten = v / 100f, false)); y += 20;
+        controls.add(new NumberField(100, y, "Неакт. –", () -> (int)(config.outerInactiveDarken * 100), v -> config.outerInactiveDarken = v / 100f, false)); y += 30;
+
+        // === Градиент: Внутреннее кольцо ===
+        controls.add(new LabelControl("Градиент: Внутреннее", y, 0xAAAAAA)); y += 20;
+        controls.add(new NumberField(100, y, "Актив. +", () -> (int)(config.innerActiveLighten * 100), v -> config.innerActiveLighten = v / 100f, false)); y += 20;
+        controls.add(new NumberField(100, y, "Наведение +", () -> (int)(config.innerHoverLighten * 100), v -> config.innerHoverLighten = v / 100f, false)); y += 20;
+        controls.add(new NumberField(100, y, "Неакт. +", () -> (int)(config.innerInactiveLighten * 100), v -> config.innerInactiveLighten = v / 100f, false)); y += 20;
+        controls.add(new NumberField(100, y, "Неакт. –", () -> (int)(config.innerInactiveDarken * 100), v -> config.innerInactiveDarken = v / 100f, false)); y += 30;
+        
         // === Поведение ===
-        controls.add(new LabelControl("Поведение", 410, 0xAAAAAA));
-        controls.add(new ToggleField(10, 430, "Тултипы", config::isEnableTooltips, config::setEnableTooltips));
-        controls.add(new ToggleField(10, 450, "Закрывать по клику", config::isCloseOnBackgroundClick, config::setCloseOnBackgroundClick));
-        controls.add(new CycleField(10, 470, "Открытие меню",
-            List.of("По зажатию", "По клику"),
-            config::getMenuOpenMode,
-            config::setMenuOpenMode));
+        controls.add(new LabelControl("Поведение", y, 0xAAAAAA)); y += 20;
+        controls.add(new ToggleField(10, y, "Тултипы", config::isEnableTooltips, config::setEnableTooltips)); y += 20;
+        controls.add(new ToggleField(10, y, "Закрывать по клику", config::isCloseOnBackgroundClick, config::setCloseOnBackgroundClick)); y += 20;
+        controls.add(new CycleField(10, y, "Открытие меню", List.of("По зажатию", "По клику"), config::getMenuOpenMode, config::setMenuOpenMode)); y += 30;
+
+        // === Сброс ===
+        controls.add(new LabelControl("Сброс", y, 0xAAAAAA)); y += 20;
+        controls.add(new Button(10, y, "Сбросить всё", 0xFF6666, this::resetToDefaults)); y += 20;
+        controls.add(new Button(10, y, "Сбросить до моего", 0x66FF66, this::reloadFromDisk)); y += 20;
     }
 
     public void render(DrawContext ctx, int px, HexSBMConfig config, TextRenderer textRenderer, int mx, int my) {

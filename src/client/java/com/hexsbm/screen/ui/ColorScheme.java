@@ -38,38 +38,34 @@ public class ColorScheme {
 
     private int getRgbForState(boolean cur, boolean hover, boolean isInner, boolean isOuterEdge) {
         if (config.disableGradient) {
-            // Единый цвет для всех — выбираем логику, близкую к outer-outer
+            // Единый цвет — используем outer как базовый
             if (cur) {
-                return lighten(pigmentColor, config.activeLighten);
+                return lighten(pigmentColor, config.outerActiveLighten);
             } else if (hover) {
-                return lighten(pigmentColor, config.hoverLighten);
+                return lighten(pigmentColor, config.outerHoverLighten);
             } else {
-                // Для неактивного — используем inactiveLighten (мягче, чем darken)
-                return lighten(pigmentColor, config.inactiveLighten);
+                return lighten(pigmentColor, config.outerInactiveLighten);
             }
         } else {
-            // Оригинальная логика
+            float lightenAmount, darkenAmount;
             if (isInner) {
-                if (isOuterEdge) { // innerOuter
-                    if (cur) {
-                        return lighten(pigmentColor, config.innerOuterActiveLighten);
-                    } else if (hover) {
-                        return lighten(pigmentColor, config.hoverLighten);
-                    } else {
-                        return darken(pigmentColor, config.inactiveDarken);
-                    }
-                } else { // innerInner
-                    return lighten(pigmentColor, config.inactiveLighten);
-                }
+                lightenAmount = isOuterEdge ? config.innerActiveLighten : config.innerInactiveLighten;
+                darkenAmount = config.innerInactiveDarken;
             } else {
-                if (isOuterEdge) { // outerOuter
-                    return cur || hover
-                        ? lighten(pigmentColor, config.activeLighten)
-                        : lighten(pigmentColor, config.inactiveLighten);
-                } else { // outerInner
-                    return cur || hover
-                        ? lighten(pigmentColor, config.activeLighten)
-                        : darken(pigmentColor, config.inactiveDarken);
+                lightenAmount = config.outerActiveLighten;
+                darkenAmount = config.outerInactiveDarken;
+            }
+
+            if (cur) {
+                return lighten(pigmentColor, isInner && isOuterEdge ? config.innerActiveLighten : (isInner ? config.innerActiveLighten : config.outerActiveLighten));
+            } else if (hover) {
+                return lighten(pigmentColor, isInner ? config.innerHoverLighten : config.outerHoverLighten);
+            } else {
+                // Для неактивного: innerInner/outerOuter → lighten, innerOuter/outerInner → darken
+                if ((isInner && !isOuterEdge) || (!isInner && isOuterEdge)) {
+                    return lighten(pigmentColor, isInner ? config.innerInactiveLighten : config.outerInactiveLighten);
+                } else {
+                    return darken(pigmentColor, isInner ? config.innerInactiveDarken : config.outerInactiveDarken);
                 }
             }
         }

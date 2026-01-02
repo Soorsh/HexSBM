@@ -25,12 +25,17 @@ public class HexSBMConfig {
     public boolean enableTooltips = true;
     public boolean closeOnBackgroundClick = true;
 
-    // === Цветовые поправки ===
-    public float activeLighten = 0.15f;
-    public float hoverLighten = 0.25f;
-    public float inactiveLighten = 0.10f;
-    public float inactiveDarken = 0.10f;
-    public float innerOuterActiveLighten = 0.20f;
+    // === Цвет: Внешнее кольцо ===
+    public float outerActiveLighten = 0.15f;
+    public float outerHoverLighten = 0.25f;
+    public float outerInactiveLighten = 0.10f;
+    public float outerInactiveDarken = 0.10f;
+
+    // === Цвет: Внутреннее кольцо ===
+    public float innerActiveLighten = 0.15f;
+    public float innerHoverLighten = 0.25f;
+    public float innerInactiveLighten = 0.10f;
+    public float innerInactiveDarken = 0.10f;
 
     // === Рендер кольца ===
     public int segmentResolution = 16;
@@ -88,10 +93,10 @@ public class HexSBMConfig {
     public boolean isDisableGradient() { return disableGradient; }
 
     // =============== СЕТТЕРЫ ===============
-    public void setInnerRingInnerRadius(int v) { this.innerRingInnerRadius = MathHelper.clamp(v, 0, MAX_RADIUS); enforceRingOrder(); }
-    public void setInnerRingOuterRadius(int v) { this.innerRingOuterRadius = MathHelper.clamp(v, 0, MAX_RADIUS); enforceRingOrder(); }
-    public void setOuterRingInnerRadius(int v) { this.outerRingInnerRadius = MathHelper.clamp(v, 0, MAX_RADIUS); enforceRingOrder(); }
-    public void setOuterRingOuterRadius(int v) { this.outerRingOuterRadius = MathHelper.clamp(v, 0, MAX_RADIUS); enforceRingOrder(); }
+    public void setInnerRingInnerRadius(int v) { v = MathHelper.clamp(v, 0, MAX_RADIUS); this.innerRingInnerRadius = v; if (this.innerRingOuterRadius < v) this.innerRingOuterRadius = v; }
+    public void setInnerRingOuterRadius(int v) { v = MathHelper.clamp(v, 0, MAX_RADIUS); this.innerRingOuterRadius = v; if (this.innerRingInnerRadius > v) this.innerRingInnerRadius = v; }
+    public void setOuterRingInnerRadius(int v) { v = MathHelper.clamp(v, 0, MAX_RADIUS); this.outerRingInnerRadius = v; if (this.outerRingOuterRadius < v) this.outerRingOuterRadius = v; }
+    public void setOuterRingOuterRadius(int v) { v = MathHelper.clamp(v, 0, MAX_RADIUS); this.outerRingOuterRadius = v; if (this.outerRingInnerRadius > v) this.outerRingInnerRadius = v; }
     public void setInnerIconRadiusOffset(int v) { this.innerIconRadiusOffset = MathHelper.clamp(v, -MAX_OFFSET, MAX_OFFSET); }
     public void setOuterIconRadiusOffset(int v) { this.outerIconRadiusOffset = MathHelper.clamp(v, -MAX_OFFSET, MAX_OFFSET); }
     public void setUsePigmentColor(boolean v) { this.usePigmentColor = v; }
@@ -102,14 +107,19 @@ public class HexSBMConfig {
     public void setDisableGradient(boolean v) { this.disableGradient = v; }
 
     private void enforceRingOrder() {
-        innerRingInnerRadius = MathHelper.clamp(innerRingInnerRadius, 0, MAX_RADIUS);
-        innerRingOuterRadius = MathHelper.clamp(innerRingOuterRadius, 0, MAX_RADIUS);
-        outerRingInnerRadius = MathHelper.clamp(outerRingInnerRadius, 0, MAX_RADIUS);
-        outerRingOuterRadius = MathHelper.clamp(outerRingOuterRadius, 0, MAX_RADIUS);
+        this.innerRingInnerRadius = MathHelper.clamp(this.innerRingInnerRadius, 0, MAX_RADIUS);
+        this.innerRingOuterRadius = MathHelper.clamp(this.innerRingOuterRadius, 0, MAX_RADIUS);
+        this.outerRingInnerRadius = MathHelper.clamp(this.outerRingInnerRadius, 0, MAX_RADIUS);
+        this.outerRingOuterRadius = MathHelper.clamp(this.outerRingOuterRadius, 0, MAX_RADIUS);
 
-        innerRingOuterRadius = Math.max(innerRingInnerRadius, innerRingOuterRadius);
-        outerRingInnerRadius = Math.max(innerRingOuterRadius, outerRingInnerRadius);
-        outerRingOuterRadius = Math.max(outerRingInnerRadius, outerRingOuterRadius);
+        // Внутри каждого кольца: внутренний радиус не больше внешнего
+        if (this.innerRingInnerRadius > this.innerRingOuterRadius) {
+            this.innerRingOuterRadius = this.innerRingInnerRadius;
+        }
+        if (this.outerRingInnerRadius > this.outerRingOuterRadius) {
+            this.outerRingOuterRadius = this.outerRingInnerRadius;
+        }
+        // ← Между кольцами НЕТ связи. Совсем.
     }
 
     public HexSBMConfig() {}
@@ -128,11 +138,14 @@ public class HexSBMConfig {
         this.inactiveAlpha = other.inactiveAlpha;
         this.enableTooltips = other.enableTooltips;
         this.closeOnBackgroundClick = other.closeOnBackgroundClick;
-        this.activeLighten = other.activeLighten;
-        this.hoverLighten = other.hoverLighten;
-        this.inactiveLighten = other.inactiveLighten;
-        this.inactiveDarken = other.inactiveDarken;
-        this.innerOuterActiveLighten = other.innerOuterActiveLighten;
+        this.outerActiveLighten = other.outerActiveLighten;
+        this.outerHoverLighten = other.outerHoverLighten;
+        this.outerInactiveLighten = other.outerInactiveLighten;
+        this.outerInactiveDarken = other.outerInactiveDarken;
+        this.innerActiveLighten = other.innerActiveLighten;
+        this.innerHoverLighten = other.innerHoverLighten;
+        this.innerInactiveLighten = other.innerInactiveLighten;
+        this.innerInactiveDarken = other.innerInactiveDarken;
         this.segmentResolution = other.segmentResolution;
         this.patternTooltipLineIndex = other.patternTooltipLineIndex;
         this.minTooltipLinesForPattern = other.minTooltipLinesForPattern;
