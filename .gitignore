@@ -41,4 +41,4 @@ replay_*.log
 
 # libs
 /libs/*.jar
-!/libs/README.md
+development_*.md
