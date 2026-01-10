@@ -5,6 +5,7 @@ import com.hexsbm.config.HexSBMConfig;
 import com.hexsbm.screen.ui.elements.Button;
 import com.hexsbm.screen.ui.elements.ConfigControl;
 import com.hexsbm.screen.ui.elements.CycleField;
+import com.hexsbm.screen.ui.elements.DividerControl;
 import com.hexsbm.screen.ui.elements.LabelControl;
 import com.hexsbm.screen.ui.elements.NumberField;
 import com.hexsbm.screen.ui.elements.ToggleField;
@@ -20,25 +21,34 @@ public class ConfigPanel {
     private final List<ConfigControl> controls;
     private final HexSBMConfig config;
     private int scrollY = 0;
-    private static final int CONTENT_HEIGHT = 750;
+    private static final int CONTENT_HEIGHT = 780;
 
     public ConfigPanel(HexSBMConfig config) {
         this.config = config;
         this.controls = new ArrayList<>();
 
-        int y = 10;
+        int y = 20;
+        
+        // === Поведение ===
+        controls.add(new LabelControl("Поведение", y, 0xAAAAAA)); y += 20;
+        controls.add(new ToggleField(10, y, "Тултипы", config::isEnableTooltips, config::setEnableTooltips)); y += 20;
+        controls.add(new ToggleField(10, y, "Закрывать по клику", config::isCloseOnBackgroundClick, config::setCloseOnBackgroundClick)); y += 20;
+        controls.add(new CycleField(10, y, "Открытие меню", List.of("По зажатию", "По клику"), config::getMenuOpenMode, config::setMenuOpenMode)); y += 30;
+        controls.add(new DividerControl(y, 10)); y += 10; // Divider
 
         // === Внешнее кольцо ===
         controls.add(new LabelControl("Внешнее кольцо", y, 0xAAAAAA)); y += 20;
         controls.add(new NumberField(100, y, "Внешний радиус", config::getOuterRingOuterRadius, config::setOuterRingOuterRadius, false)); y += 20;
         controls.add(new NumberField(100, y, "Начало", config::getOuterRingInnerRadius, config::setOuterRingInnerRadius, false)); y += 20;
         controls.add(new NumberField(100, y, "Смещение", config::getOuterIconRadiusOffset, v -> config.setOuterIconRadiusOffset(v), true)); y += 30;
+        controls.add(new DividerControl(y, 10)); y += 10; // Divider
 
         // === Внутреннее кольцо ===
         controls.add(new LabelControl("Внутреннее кольцо", y, 0xAAAAAA)); y += 20;
         controls.add(new NumberField(100, y, "Внутр. радиус", config::getInnerRingInnerRadius, config::setInnerRingInnerRadius, false)); y += 20;
         controls.add(new NumberField(100, y, "Конец", config::getInnerRingOuterRadius, config::setInnerRingOuterRadius, false)); y += 20;
         controls.add(new NumberField(100, y, "Смещение", config::getInnerIconRadiusOffset, v -> config.setInnerIconRadiusOffset(v), true)); y += 30;
+        controls.add(new DividerControl(y, 10)); y += 10; // Divider
 
         // === Цвет ===
         controls.add(new LabelControl("Цвет", y, 0xAAAAAA)); y += 20;
@@ -52,7 +62,8 @@ public class ConfigPanel {
 
         // Доп. настройки цвета
         controls.add(new CycleField(10, y, "Режим", List.of("По заклинанию", "Всегда", "Никогда"), config::getColorMode, config::setColorMode)); y += 20;
-        controls.add(new ToggleField(10, y, "Без градиента", config::isDisableGradient, config::setDisableGradient)); y += 20;
+        controls.add(new ToggleField(10, y, "Градиент", () -> !config.isDisableGradient(), val -> config.setDisableGradient(!val))); y += 20;
+        controls.add(new DividerControl(y, 10)); y += 10; // Divider
 
         // === Градиент: Внешнее кольцо ===
         controls.add(new LabelControl("Градиент: Внешнее", y, 0xAAAAAA)); y += 20;
@@ -60,6 +71,7 @@ public class ConfigPanel {
         controls.add(new NumberField(100, y, "Наведение +", () -> (int)(config.outerHoverLighten * 100), v -> config.outerHoverLighten = v / 100f, false)); y += 20;
         controls.add(new NumberField(100, y, "Неакт. +", () -> (int)(config.outerInactiveLighten * 100), v -> config.outerInactiveLighten = v / 100f, false)); y += 20;
         controls.add(new NumberField(100, y, "Неакт. –", () -> (int)(config.outerInactiveDarken * 100), v -> config.outerInactiveDarken = v / 100f, false)); y += 30;
+        controls.add(new DividerControl(y, 10)); y += 10; // Divider
 
         // === Градиент: Внутреннее кольцо ===
         controls.add(new LabelControl("Градиент: Внутреннее", y, 0xAAAAAA)); y += 20;
@@ -67,17 +79,13 @@ public class ConfigPanel {
         controls.add(new NumberField(100, y, "Наведение +", () -> (int)(config.innerHoverLighten * 100), v -> config.innerHoverLighten = v / 100f, false)); y += 20;
         controls.add(new NumberField(100, y, "Неакт. +", () -> (int)(config.innerInactiveLighten * 100), v -> config.innerInactiveLighten = v / 100f, false)); y += 20;
         controls.add(new NumberField(100, y, "Неакт. –", () -> (int)(config.innerInactiveDarken * 100), v -> config.innerInactiveDarken = v / 100f, false)); y += 30;
+        controls.add(new DividerControl(y, 10)); y += 10; // Divider
         
-        // === Поведение ===
-        controls.add(new LabelControl("Поведение", y, 0xAAAAAA)); y += 20;
-        controls.add(new ToggleField(10, y, "Тултипы", config::isEnableTooltips, config::setEnableTooltips)); y += 20;
-        controls.add(new ToggleField(10, y, "Закрывать по клику", config::isCloseOnBackgroundClick, config::setCloseOnBackgroundClick)); y += 20;
-        controls.add(new CycleField(10, y, "Открытие меню", List.of("По зажатию", "По клику"), config::getMenuOpenMode, config::setMenuOpenMode)); y += 30;
-
         // === Сброс ===
         controls.add(new LabelControl("Сброс", y, 0xAAAAAA)); y += 20;
-        controls.add(new Button(10, y, "Сбросить всё", 0xFF6666, this::resetToDefaults)); y += 20;
-        controls.add(new Button(10, y, "Сбросить до моего", 0x66FF66, this::reloadFromDisk)); y += 20;
+        controls.add(new Button(10, y, "Сбросить всё", 0xFFFFFF, this::resetToDefaults)); y += 20;
+        controls.add(new Button(10, y, "Сбросить до моего", 0xFFFFFF, this::reloadFromDisk)); y += 20;
+
     }
 
     public void render(DrawContext ctx, int px, HexSBMConfig config, TextRenderer textRenderer, int mx, int my) {

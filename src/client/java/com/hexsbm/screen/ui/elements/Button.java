@@ -10,6 +10,15 @@ public class Button implements ConfigControl {
     private final int color;
     private final Runnable action;
 
+    private boolean isPressed = false;
+
+    private static final int BUTTON_WIDTH = 100;
+    private static final int BUTTON_HEIGHT = 16;
+    private static final int BACKGROUND_COLOR = 0xFF333333;
+    private static final int HOVER_BACKGROUND_COLOR = 0xFF555555;
+    private static final int PRESSED_BACKGROUND_COLOR = 0xFF111111;
+    private static final int BORDER_COLOR = 0xFF666666;
+
     public Button(int x, int y, String label, int color, Runnable action) {
         this.x = x;
         this.y = y;
@@ -21,15 +30,35 @@ public class Button implements ConfigControl {
     @Override
     public void render(DrawContext ctx, TextRenderer textRenderer, int mx, int my, int panelX, int scrollY) {
         int yScreen = y - scrollY;
-        ctx.drawText(textRenderer, label, panelX + x, yScreen, color, false);
+        int sx = panelX + x;
+
+        boolean isHovered = mx >= sx && mx <= sx + BUTTON_WIDTH && my >= yScreen && my <= yScreen + BUTTON_HEIGHT;
+
+        int currentBackgroundColor = BACKGROUND_COLOR;
+        if (isPressed) {
+            currentBackgroundColor = PRESSED_BACKGROUND_COLOR;
+            isPressed = false; // Reset after one frame
+        } else if (isHovered) {
+            currentBackgroundColor = HOVER_BACKGROUND_COLOR;
+        }
+
+        // Draw background
+        ctx.fill(sx, yScreen, sx + BUTTON_WIDTH, yScreen + BUTTON_HEIGHT, currentBackgroundColor);
+        // Draw border
+        ctx.drawBorder(sx, yScreen, BUTTON_WIDTH, BUTTON_HEIGHT, BORDER_COLOR);
+
+        // Draw text centered
+        int textX = sx + (BUTTON_WIDTH - textRenderer.getWidth(Text.literal(label))) / 2;
+        int textY = yScreen + (BUTTON_HEIGHT - textRenderer.fontHeight) / 2;
+        ctx.drawText(textRenderer, label, textX, textY, color, false);
     }
 
     @Override
     public boolean mouseClicked(int mx, int my, int panelX, TextRenderer textRenderer, int scrollY) {
         int yScreen = y - scrollY;
         int sx = panelX + x;
-        int textW = textRenderer.getWidth(Text.literal(label));
-        if (mx >= sx && mx <= sx + textW && my >= yScreen && my <= yScreen + 12) {
+        if (mx >= sx && mx <= sx + BUTTON_WIDTH && my >= yScreen && my <= yScreen + BUTTON_HEIGHT) {
+            isPressed = true;
             action.run();
             return true;
         }

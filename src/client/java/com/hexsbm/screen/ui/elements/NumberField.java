@@ -19,6 +19,11 @@ public class NumberField implements ConfigControl {
     private boolean editing = false;
     public final StringBuilder buffer = new StringBuilder();
 
+    public static final int WIDTH = 40; // Новая ширина поля ввода
+    private static final int HIGHLIGHT_COLOR = 0xFFFFFFFF; // Цвет подсветки при редактировании
+    private static final int BACKGROUND_COLOR = 0xFF333333;
+    private static final int HOVER_BACKGROUND_COLOR = 0xFF555555;
+
     public NumberField(int x, int y, String label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset) {
         this.x = x;
         this.y = y;
@@ -32,11 +37,20 @@ public class NumberField implements ConfigControl {
     public void render(DrawContext ctx, TextRenderer textRenderer, int mx, int my, int panelX, int scrollY) {
         int yScreen = y - scrollY;
         int sx = panelX + x;
-        boolean hovered = mx >= sx && mx < sx + 80 && my >= yScreen && my < yScreen + 16;
-        if (hovered) ctx.fill(sx, yScreen, sx + 80, yScreen + 16, 0x44FFFFFF);
-        ctx.fill(sx, yScreen, sx + 80, yScreen + 16, 0xFF333333);
-        ctx.fill(sx, yScreen, sx + 80, yScreen + 1, 0xFF666666);
+        boolean hovered = mx >= sx && mx < sx + WIDTH && my >= yScreen && my < yScreen + 16;
+
+        int currentBackgroundColor = hovered ? HOVER_BACKGROUND_COLOR : BACKGROUND_COLOR;
+        ctx.fill(sx, yScreen, sx + WIDTH, yScreen + 16, currentBackgroundColor);
+        
+        ctx.fill(sx, yScreen, sx + WIDTH, yScreen + 1, 0xFF666666);
         ctx.fill(sx, yScreen, sx + 1, yScreen + 16, 0xFF666666);
+
+        if (editing) {
+            ctx.fill(sx - 1, yScreen - 1, sx + WIDTH + 1, yScreen, HIGHLIGHT_COLOR); // Top border
+            ctx.fill(sx - 1, yScreen + 16, sx + WIDTH + 1, yScreen + 17, HIGHLIGHT_COLOR); // Bottom border
+            ctx.fill(sx - 1, yScreen, sx, yScreen + 16, HIGHLIGHT_COLOR); // Left border
+            ctx.fill(sx + WIDTH, yScreen, sx + WIDTH + 1, yScreen + 16, HIGHLIGHT_COLOR); // Right border
+        }
 
         String display = editing ? buffer.toString() : String.valueOf(getter.getAsInt());
         ctx.drawText(textRenderer, display, sx + 3, yScreen + 4, 0xFFFFFF, false);
@@ -57,7 +71,7 @@ public class NumberField implements ConfigControl {
     public boolean mouseClicked(int mx, int my, int panelX, TextRenderer textRenderer, int scrollY) {
         int yScreen = y - scrollY;
         int sx = panelX + x;
-        if (mx >= sx && mx < sx + 80 && my >= yScreen && my < yScreen + 16) {
+        if (mx >= sx && mx < sx + WIDTH && my >= yScreen && my < yScreen + 16) {
             editing = true;
             buffer.setLength(0);
             buffer.append(getter.getAsInt());
@@ -132,7 +146,7 @@ public class NumberField implements ConfigControl {
     public boolean isMouseOver(int mx, int my, int panelX, int scrollY) {
         int yScreen = this.y - scrollY;
         int sx = panelX + x;
-        return mx >= sx && mx < sx + 80 && my >= yScreen && my < yScreen + 16;
+        return mx >= sx && mx < sx + WIDTH && my >= yScreen && my < yScreen + 16;
     }
 
     public boolean isEditing() { return editing; }
