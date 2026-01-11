@@ -210,7 +210,15 @@ public class SpellBookScreen extends Screen {
             }
         }
 
-        // === 2. Панель ЗАКРЫТА — проверяем кольца ===
+        // === 2. Панель ЗАКРЫТА — проверяем зону открытия ПАНЕЛИ ===
+        if (mx >= width - HOVER_ZONE_WIDTH) {
+            // Клик в правой зоне → открываем панель
+            configPanelFullyOpen = true;
+            configInteractionStarted = true;
+            return true;
+        }
+
+        // === 3. Панель ЗАКРЫТА — проверяем кольца ===
         int cx = (int)(width * liveConfig.centerX);
         int cy = (int)(height * liveConfig.centerY);
         boolean clickedOnAnySegment = false;
@@ -256,19 +264,12 @@ public class SpellBookScreen extends Screen {
             }
         }
 
-        // === 3. Клик мимо всех сегментов ===
+        // === 4. Клик мимо всех сегментов и зоны открытия панели ===
         if (!clickedOnAnySegment) {
-            if (mx >= width - HOVER_ZONE_WIDTH) {
-                // Клик в правой зоне → открываем панель
-                configPanelFullyOpen = true;
-                configInteractionStarted = true;
+            // Клик в фоне → закрываем экран, если разрешено
+            if (liveConfig.closeOnBackgroundClick) {
+                close();
                 return true;
-            } else {
-                // Клик в фоне → закрываем экран, если разрешено
-                if (liveConfig.closeOnBackgroundClick) {
-                    close();
-                    return true;
-                }
             }
         }
 

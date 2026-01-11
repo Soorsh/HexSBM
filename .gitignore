@@ -41,4 +41,3 @@ replay_*.log
 
 # libs
 /libs/*.jar
-development_*.md

@@ -12,6 +12,7 @@ public class NumberField implements ConfigControl {
     public final int x, y;
     public final String label;
     public final boolean isOffset;
+    public final boolean isColor;
 
     public final java.util.function.IntSupplier getter;
     public final java.util.function.IntConsumer setter;
@@ -24,13 +25,18 @@ public class NumberField implements ConfigControl {
     private static final int BACKGROUND_COLOR = 0xFF333333;
     private static final int HOVER_BACKGROUND_COLOR = 0xFF555555;
 
-    public NumberField(int x, int y, String label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset) {
+    public NumberField(int x, int y, String label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset, boolean isColor) {
         this.x = x;
         this.y = y;
         this.label = label;
         this.getter = getter;
         this.setter = setter;
         this.isOffset = isOffset;
+        this.isColor = isColor;
+    }
+
+    public NumberField(int x, int y, String label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset) {
+        this(x, y, label, getter, setter, isOffset, false);
     }
 
     @Override
@@ -53,12 +59,24 @@ public class NumberField implements ConfigControl {
         }
 
         String display = editing ? buffer.toString() : String.valueOf(getter.getAsInt());
-        ctx.drawText(textRenderer, display, sx + 3, yScreen + 4, 0xFFFFFF, false);
+        int availableWidth = WIDTH - 6; // 3px padding on each side
+
+        String truncatedDisplay;
+        if (editing) {
+            truncatedDisplay = display;
+            while (textRenderer.getWidth(truncatedDisplay) > availableWidth && truncatedDisplay.length() > 0) {
+                truncatedDisplay = truncatedDisplay.substring(1);
+            }
+        } else {
+            truncatedDisplay = textRenderer.trimToWidth(display, availableWidth);
+        }
+
+        ctx.drawText(textRenderer, truncatedDisplay, sx + 3, yScreen + 4, 0xFFFFFF, false);
 
         if (editing) {
             long blink = System.currentTimeMillis() / 500;
             if (blink % 2 == 0) {
-                int w = textRenderer.getWidth(Text.literal(display));
+                int w = textRenderer.getWidth(Text.literal(truncatedDisplay));
                 ctx.fill(sx + 3 + w + 1, yScreen + 3, sx + 3 + w + 2, yScreen + 13, 0xFFFFFFFF);
             }
         }
@@ -116,7 +134,9 @@ public class NumberField implements ConfigControl {
         int step = amount > 0 ? 1 : -1;
         int newValue = getter.getAsInt() + step;
 
-        if (isOffset) {
+        if (isColor) {
+            newValue = MathHelper.clamp(newValue, 0, 255);
+        } else if (isOffset) {
             newValue = MathHelper.clamp(newValue, -HexSBMConfig.MAX_OFFSET, HexSBMConfig.MAX_OFFSET);
         } else {
             newValue = MathHelper.clamp(newValue, 0, HexSBMConfig.MAX_RADIUS);
@@ -134,7 +154,9 @@ public class NumberField implements ConfigControl {
         if (buffer.length() == 0) return;
         try {
             int v = Integer.parseInt(buffer.toString());
-            if (isOffset) {
+            if (isColor) {
+                v = MathHelper.clamp(v, 0, 255);
+            } else if (isOffset) {
                 v = MathHelper.clamp(v, -com.hexsbm.config.HexSBMConfig.MAX_OFFSET, com.hexsbm.config.HexSBMConfig.MAX_OFFSET);
             } else {
                 v = MathHelper.clamp(v, 0, com.hexsbm.config.HexSBMConfig.MAX_RADIUS);
