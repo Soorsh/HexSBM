@@ -21,7 +21,7 @@ public class ConfigPanel {
     private final List<ConfigControl> controls;
     private final HexSBMConfig config;
     private int scrollY = 0;
-    private static final int CONTENT_HEIGHT = 810;
+    private static final int CONTENT_HEIGHT = 860;
 
     public ConfigPanel(HexSBMConfig config) {
         this.config = config;
@@ -29,6 +29,10 @@ public class ConfigPanel {
 
         int y = 20;
         
+        // === Сброс (Верх) ===
+        y = addResetSection(y);
+        controls.add(new DividerControl(y, 10)); y += 10;
+
         // === Поведение ===
         controls.add(new LabelControl("Поведение", y, 0xAAAAAA)); y += 20;
         controls.add(new CheckBoxField(10, y, "Тултипы", config::isEnableTooltips, config::setEnableTooltips)); y += 20;
@@ -81,11 +85,16 @@ public class ConfigPanel {
         controls.add(new NumberField(100, y, "Неакт. –", () -> (int)(config.innerInactiveDarken * 100), v -> config.innerInactiveDarken = v / 100f, false)); y += 30;
         controls.add(new DividerControl(y, 10)); y += 10; // Divider
         
-        // === Сброс ===
+        // === Сброс (Низ) ===
+        y = addResetSection(y);
+    }
+
+    private int addResetSection(int y) {
         controls.add(new LabelControl("Сброс", y, 0xAAAAAA)); y += 20;
-        controls.add(new Button(10, y, "Сохранить", 0xFFFFFF, this::saveConfig)); y += 20;
-        controls.add(new Button(10, y, "Сбросить", 0xFFFFFF, this::resetChanges)); y += 20;
-        controls.add(new Button(10, y, "СБРОСИТЬ ВСЁ", 0xFFFFFF, this::resetToDefaults)); y += 20;
+        controls.add(new Button(15, y, "Сохранить", 0xFFFFFF, this::saveConfig));
+        controls.add(new Button(115, y, "Сбросить", 0xFFFFFF, this::resetChanges)); y += 20;
+        controls.add(new Button(115, y, "СБРОСИТЬ ВСЁ", 0xFFFF0000, this::resetToDefaults)); y += 20;
+        return y;
     }
 
     public void render(DrawContext ctx, int px, HexSBMConfig config, TextRenderer textRenderer, int mx, int my) {

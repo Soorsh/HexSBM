@@ -12,7 +12,7 @@ public class Button implements ConfigControl {
 
     private boolean isPressed = false;
 
-    private static final int BUTTON_WIDTH = 100;
+    private static final int BUTTON_WIDTH = 90;
     private static final int BUTTON_HEIGHT = 16;
     private static final int BACKGROUND_COLOR = 0xFF333333;
     private static final int HOVER_BACKGROUND_COLOR = 0xFF555555;
