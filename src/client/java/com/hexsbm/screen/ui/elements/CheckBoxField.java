@@ -15,6 +15,8 @@ public class CheckBoxField implements ConfigControl {
 
     private static final int BOX_SIZE = 10;
     private static final int BOX_Y_OFFSET = 1;
+    private static final int TEXT_CHECKBOX_SPACING = 5;
+    private static final int CHECKMARK_PADDING = 2;
 
     private static final int BACKGROUND_COLOR = 0xFF333333; // Темно-серый для фона
     private static final int HOVER_BACKGROUND_COLOR = 0xFF555555;  // Светло-серый при наведении
@@ -39,7 +41,7 @@ public class CheckBoxField implements ConfigControl {
         // Draw label
         ctx.drawText(textRenderer, fullLabel, sx, yScreen + BOX_Y_OFFSET + (BOX_SIZE - textRenderer.fontHeight) / 2, 0xFFFFFF, false);
 
-        int checkboxX = sx + textRenderer.getWidth(fullLabel) + 5; // Position the checkbox after the label
+        int checkboxX = sx + textRenderer.getWidth(fullLabel) + TEXT_CHECKBOX_SPACING; // Position the checkbox after the label
         int checkboxY = yScreen + BOX_Y_OFFSET;
 
         boolean isHovered = mx >= checkboxX && mx <= checkboxX + BOX_SIZE && my >= checkboxY && my <= checkboxY + BOX_SIZE;
@@ -52,7 +54,7 @@ public class CheckBoxField implements ConfigControl {
         // Draw checkmark if toggled on
         if (value) {
             // Draw a filled square inside the box
-            ctx.fill(checkboxX + 2, checkboxY + 2, checkboxX + BOX_SIZE - 2, checkboxY + BOX_SIZE - 2, CHECKMARK_COLOR);
+            ctx.fill(checkboxX + CHECKMARK_PADDING, checkboxY + CHECKMARK_PADDING, checkboxX + BOX_SIZE - CHECKMARK_PADDING, checkboxY + BOX_SIZE - CHECKMARK_PADDING, CHECKMARK_COLOR);
         }
     }
 
@@ -62,7 +64,7 @@ public class CheckBoxField implements ConfigControl {
         int sx = panelX + x;
 
         Text fullLabel = Text.empty().append(label).append(":");
-        int checkboxX = sx + textRenderer.getWidth(fullLabel) + 5; // Position the checkbox after the label
+        int checkboxX = sx + textRenderer.getWidth(fullLabel) + TEXT_CHECKBOX_SPACING; // Position the checkbox after the label
         int checkboxY = yScreen + BOX_Y_OFFSET;
 
         if (mx >= checkboxX && mx <= checkboxX + BOX_SIZE && my >= checkboxY && my <= checkboxY + BOX_SIZE) {

@@ -9,9 +9,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class ConfigManager {
+    private static final String CONFIG_FILE_NAME = "hexsbm.json";
     private static final Path CONFIG_PATH = FabricLoader.getInstance()
             .getConfigDir()
-            .resolve("hexsbm.json");
+            .resolve(CONFIG_FILE_NAME);
 
     private static HexSBMConfig savedConfig = new HexSBMConfig();
     private static boolean loaded = false;
@@ -20,7 +21,7 @@ public class ConfigManager {
         if (!loaded) {
             load();
         }
-        return savedConfig.copy(); // ✅ теперь работает
+        return savedConfig.copy();
     }
 
     public static void saveConfig(HexSBMConfig config) {
@@ -29,7 +30,7 @@ public class ConfigManager {
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
             String json = gson.toJson(config);
             Files.writeString(CONFIG_PATH, json);
-            savedConfig = config.copy(); // ✅ обновляем кэш
+            savedConfig = config.copy();
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -68,15 +68,18 @@ public class HexSBMConfig {
     public int uiBaseColor = 0xFFFFFFFF;
 
     // === Режим цвета ===
-    public int colorMode = 1; // 0 = по заклинанию, 1 = всегда, 2 = никогда
+    public static final int COLOR_MODE_BY_SPELL = 0;
+    public static final int COLOR_MODE_ALWAYS = 1;
+    public static final int COLOR_MODE_NEVER = 2;
+    public int colorMode = COLOR_MODE_ALWAYS;
 
     // === Отключение градиента ===
     public boolean disableGradient = false;
 
     // === Режим открытия МЕНЮ (не конфига!) ===
-    // 0 = По зажатию клавиши
-    // 1 = По клику (toggle)
-    public int menuOpenMode = 0;
+    public static final int MENU_OPEN_MODE_HOLD = 0;
+    public static final int MENU_OPEN_MODE_CLICK = 1;
+    public int menuOpenMode = MENU_OPEN_MODE_HOLD;
 
     // =============== ГЕТТЕРЫ ===============
     public int getInnerRingInnerRadius() { return innerRingInnerRadius; }
@@ -93,18 +96,22 @@ public class HexSBMConfig {
     public boolean isDisableGradient() { return disableGradient; }
 
     // =============== СЕТТЕРЫ ===============
-    public void setInnerRingInnerRadius(int v) { v = MathHelper.clamp(v, 0, MAX_RADIUS); this.innerRingInnerRadius = v; if (this.innerRingOuterRadius < v) this.innerRingOuterRadius = v; }
-    public void setInnerRingOuterRadius(int v) { v = MathHelper.clamp(v, 0, MAX_RADIUS); this.innerRingOuterRadius = v; if (this.innerRingInnerRadius > v) this.innerRingInnerRadius = v; }
-    public void setOuterRingInnerRadius(int v) { v = MathHelper.clamp(v, 0, MAX_RADIUS); this.outerRingInnerRadius = v; if (this.outerRingOuterRadius < v) this.outerRingOuterRadius = v; }
-    public void setOuterRingOuterRadius(int v) { v = MathHelper.clamp(v, 0, MAX_RADIUS); this.outerRingOuterRadius = v; if (this.outerRingInnerRadius > v) this.outerRingInnerRadius = v; }
+    public void setInnerRingInnerRadius(int v) { v = clampRadius(v); this.innerRingInnerRadius = v; if (this.innerRingOuterRadius < v) this.innerRingOuterRadius = v; }
+    public void setInnerRingOuterRadius(int v) { v = clampRadius(v); this.innerRingOuterRadius = v; if (this.innerRingInnerRadius > v) this.innerRingInnerRadius = v; }
+    public void setOuterRingInnerRadius(int v) { v = clampRadius(v); this.outerRingInnerRadius = v; if (this.outerRingOuterRadius < v) this.outerRingOuterRadius = v; }
+    public void setOuterRingOuterRadius(int v) { v = clampRadius(v); this.outerRingOuterRadius = v; if (this.outerRingInnerRadius > v) this.outerRingInnerRadius = v; }
     public void setInnerIconRadiusOffset(int v) { this.innerIconRadiusOffset = MathHelper.clamp(v, -MAX_OFFSET, MAX_OFFSET); }
     public void setOuterIconRadiusOffset(int v) { this.outerIconRadiusOffset = MathHelper.clamp(v, -MAX_OFFSET, MAX_OFFSET); }
     public void setUsePigmentColor(boolean v) { this.usePigmentColor = v; }
     public void setEnableTooltips(boolean v) { this.enableTooltips = v; }
     public void setCloseOnBackgroundClick(boolean v) { this.closeOnBackgroundClick = v; }
-    public void setColorMode(int v) { this.colorMode = MathHelper.clamp(v, 0, 2); }
-    public void setMenuOpenMode(int v) { this.menuOpenMode = MathHelper.clamp(v, 0, 1); }
+    public void setColorMode(int v) { this.colorMode = MathHelper.clamp(v, COLOR_MODE_BY_SPELL, COLOR_MODE_NEVER); }
+    public void setMenuOpenMode(int v) { this.menuOpenMode = MathHelper.clamp(v, MENU_OPEN_MODE_HOLD, MENU_OPEN_MODE_CLICK); }
     public void setDisableGradient(boolean v) { this.disableGradient = v; }
+
+    private int clampRadius(int value) {
+        return MathHelper.clamp(value, 0, MAX_RADIUS);
+    }
 
     private void enforceRingOrder() {
         this.innerRingInnerRadius = MathHelper.clamp(this.innerRingInnerRadius, 0, MAX_RADIUS);

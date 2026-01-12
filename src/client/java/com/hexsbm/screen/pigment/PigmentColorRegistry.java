@@ -5,6 +5,7 @@ import java.util.HashMap;
 
 public class PigmentColorRegistry {
     private static final Map<String, Integer> COLORS = new HashMap<>();
+    private static final int DEFAULT_COLOR = 0xFFFFFFFF;
 
     static {
         // Pride
@@ -49,6 +50,6 @@ public class PigmentColorRegistry {
     }
 
     public static int getColor(String id) {
-        return COLORS.getOrDefault(id, 0xFFFFFFFF);
+        return COLORS.getOrDefault(id, DEFAULT_COLOR);
     }
 }

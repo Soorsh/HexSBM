@@ -26,6 +26,7 @@ public class SpellBookScreen extends Screen {
     private static final Identifier SPELLBOOK_ID = new Identifier("hexcasting", "spellbook");
     private static final int GROUPS = 8, GROUP_SIZE = 8, TOTAL_PAGES = 64;
     private static final int PANEL_WIDTH = 220;
+    private static final int PARTIAL_PANEL_WIDTH = 30;
 
     private int lastUiColor = 0;
     private boolean lastUsePigment = false;
@@ -100,7 +101,7 @@ public class SpellBookScreen extends Screen {
             return width - PANEL_WIDTH;
         }
         if (configPanelHovering) {
-            return width - 30; // PARTIAL_WIDTH
+            return width - PARTIAL_PANEL_WIDTH;
         }
         return width;
     }
@@ -119,7 +120,6 @@ public class SpellBookScreen extends Screen {
         int cx = (int)(width * liveConfig.centerX);
         int cy = (int)(height * liveConfig.centerY);
 
-        // Обновление цвета
         if (liveConfig.usePigmentColor && client != null && client.player != null) {
             ClientPlayerEntity p = client.player;
             NbtCompound cc = p.writeNbt(new NbtCompound()).getCompound("cardinal_components");
@@ -139,7 +139,6 @@ public class SpellBookScreen extends Screen {
             this.colorScheme = new ColorScheme(currentColor, liveConfig);
         }
 
-        // Рендер колец
         for (int i = 0; i < GROUPS; i++) {
             int page = centralGroup * GROUP_SIZE + i + 1;
             if (page > TOTAL_PAGES) continue;
@@ -182,7 +181,7 @@ public class SpellBookScreen extends Screen {
             ctx.drawItem(SpellbookNbtManager.getGroupIcon(book, i), (int)(cx + r * Math.cos(ang.mid)) - 8, (int)(cy + r * Math.sin(ang.mid)) - 8);
         }
 
-        configPanel.render(ctx, panelX(), liveConfig, textRenderer, mx, my);
+        configPanel.render(ctx, panelX(), textRenderer, mx, my);
     }
 
     @Override
@@ -195,34 +194,27 @@ public class SpellBookScreen extends Screen {
         int mx = (int) mouseX, my = (int) mouseY;
         int realPanelX = width - PANEL_WIDTH;
 
-        // === 1. Если панель ОТКРЫТА ===
         if (configPanelFullyOpen) {
             if (mx >= realPanelX) {
-                // Клик внутри панели — передаём управление, но НЕ закрываем в любом случае
-                configPanel.mouseClicked(mx, my, realPanelX, liveConfig, this.textRenderer);
-                return true; // даже если мимо элементов — всё равно это "внутри панели"
+                configPanel.mouseClicked(mx, my, realPanelX, this.textRenderer);
+                return true;
             } else {
-                // Клик СЛЕВА от панели — значит, по фону → закрываем панель
-                configPanel.close(liveConfig);
+                configPanel.close();
                 configPanelFullyOpen = false;
                 return true;
             }
         }
 
-        // === 2. Панель ЗАКРЫТА — проверяем зону открытия ПАНЕЛИ ===
         if (mx >= width - HOVER_ZONE_WIDTH) {
-            // Клик в правой зоне → открываем панель
             configPanelFullyOpen = true;
             configInteractionStarted = true;
             return true;
         }
 
-        // === 3. Панель ЗАКРЫТА — проверяем кольца ===
         int cx = (int)(width * liveConfig.centerX);
         int cy = (int)(height * liveConfig.centerY);
         boolean clickedOnAnySegment = false;
 
-        // Проверка внутренних сегментов (группы)
         for (int i = 0; i < GROUPS; i++) {
             RadialRenderer.SectorAngles ang = new RadialRenderer.SectorAngles(i, GROUPS);
             if (RadialRenderer.isPointInSegment(mx, my, cx, cy,
@@ -241,7 +233,6 @@ public class SpellBookScreen extends Screen {
             }
         }
 
-        // Проверка внешних сегментов (страницы)
         for (int i = 0; i < GROUPS; i++) {
             int page = centralGroup * GROUP_SIZE + i + 1;
             if (page > TOTAL_PAGES) continue;
@@ -263,9 +254,7 @@ public class SpellBookScreen extends Screen {
             }
         }
 
-        // === 4. Клик мимо всех сегментов и зоны открытия панели ===
         if (!clickedOnAnySegment) {
-            // Клик в фоне → закрываем экран, если разрешено
             if (liveConfig.closeOnBackgroundClick) {
                 close();
                 return true;
@@ -289,7 +278,7 @@ public class SpellBookScreen extends Screen {
 
     @Override
     public void close() {
-        configPanel.close(liveConfig);
+        configPanel.close();
         configPanelFullyOpen = false;
         configInteractionStarted = false;
         if (client != null) client.setScreen(null);
@@ -299,7 +288,7 @@ public class SpellBookScreen extends Screen {
     public boolean keyPressed(int keyCode, int scanCode, int mods) {
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
             if (configPanelFullyOpen) {
-                configPanel.close(liveConfig);
+                configPanel.close();
                 configPanelFullyOpen = false;
             } else {
                 close();
@@ -308,7 +297,7 @@ public class SpellBookScreen extends Screen {
         }
 
         if (configPanelFullyOpen) {
-            if (configPanel.keyPressed(keyCode, scanCode, mods, liveConfig)) {
+            if (configPanel.keyPressed(keyCode, scanCode, mods)) {
                 return true;
             }
             return super.keyPressed(keyCode, scanCode, mods);
@@ -346,7 +335,7 @@ public class SpellBookScreen extends Screen {
         int px = panelX();
 
         if (configPanelFullyOpen && mx > px) {
-            return configPanel.mouseScrolled(mx, my, amount, px, liveConfig, this.height);
+            return configPanel.mouseScrolled(mx, my, amount, px, this.height);
         }
 
         if (client == null || client.player == null || activeHand == null) return false;

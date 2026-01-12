@@ -20,10 +20,21 @@ public class NumberField implements ConfigControl {
     private boolean editing = false;
     public final StringBuilder buffer = new StringBuilder();
 
-    public static final int WIDTH = 40; // Новая ширина поля ввода
-    private static final int HIGHLIGHT_COLOR = 0xFFFFFFFF; // Цвет подсветки при редактировании
+    public static final int WIDTH = 40;
+    private static final int HIGHLIGHT_COLOR = 0xFFFFFFFF;
     private static final int BACKGROUND_COLOR = 0xFF333333;
     private static final int HOVER_BACKGROUND_COLOR = 0xFF555555;
+    private static final int FIELD_HEIGHT = 16;
+    private static final int BORDER_COLOR_LIGHT = 0xFF666666;
+    private static final int BORDER_OFFSET = 1;
+    private static final int TEXT_HORIZONTAL_MARGIN = 6;
+    private static final int TEXT_X_OFFSET = 3;
+    private static final int TEXT_Y_OFFSET = 4;
+    private static final int BLINK_RATE_MS = 500;
+    private static final int CURSOR_HEIGHT_OFFSET = 13;
+    private static final int LABEL_SPACING = 5;
+    private static final int LINE_WIDTH = 1;
+    private static final int WHITE_COLOR = 0xFFFFFF;
 
     public NumberField(int x, int y, Text label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset, boolean isColor) {
         this.x = x;
@@ -51,23 +62,23 @@ public class NumberField implements ConfigControl {
     public void render(DrawContext ctx, TextRenderer textRenderer, int mx, int my, int panelX, int scrollY) {
         int yScreen = y - scrollY;
         int sx = panelX + x;
-        boolean hovered = mx >= sx && mx < sx + WIDTH && my >= yScreen && my < yScreen + 16;
+        boolean hovered = mx >= sx && mx < sx + WIDTH && my >= yScreen && my < yScreen + FIELD_HEIGHT;
 
         int currentBackgroundColor = hovered ? HOVER_BACKGROUND_COLOR : BACKGROUND_COLOR;
-        ctx.fill(sx, yScreen, sx + WIDTH, yScreen + 16, currentBackgroundColor);
+        ctx.fill(sx, yScreen, sx + WIDTH, yScreen + FIELD_HEIGHT, currentBackgroundColor);
         
-        ctx.fill(sx, yScreen, sx + WIDTH, yScreen + 1, 0xFF666666);
-        ctx.fill(sx, yScreen, sx + 1, yScreen + 16, 0xFF666666);
+        ctx.fill(sx, yScreen, sx + WIDTH, yScreen + LINE_WIDTH, BORDER_COLOR_LIGHT);
+        ctx.fill(sx, yScreen, sx + LINE_WIDTH, yScreen + FIELD_HEIGHT, BORDER_COLOR_LIGHT);
 
         if (editing) {
-            ctx.fill(sx - 1, yScreen - 1, sx + WIDTH + 1, yScreen, HIGHLIGHT_COLOR); // Top border
-            ctx.fill(sx - 1, yScreen + 16, sx + WIDTH + 1, yScreen + 17, HIGHLIGHT_COLOR); // Bottom border
-            ctx.fill(sx - 1, yScreen, sx, yScreen + 16, HIGHLIGHT_COLOR); // Left border
-            ctx.fill(sx + WIDTH, yScreen, sx + WIDTH + 1, yScreen + 16, HIGHLIGHT_COLOR); // Right border
+            ctx.fill(sx - BORDER_OFFSET, yScreen - BORDER_OFFSET, sx + WIDTH + BORDER_OFFSET, yScreen, HIGHLIGHT_COLOR);
+            ctx.fill(sx - BORDER_OFFSET, yScreen + FIELD_HEIGHT, sx + WIDTH + BORDER_OFFSET, yScreen + FIELD_HEIGHT + BORDER_OFFSET, HIGHLIGHT_COLOR);
+            ctx.fill(sx - BORDER_OFFSET, yScreen, sx, yScreen + FIELD_HEIGHT, HIGHLIGHT_COLOR);
+            ctx.fill(sx + WIDTH, yScreen, sx + WIDTH + BORDER_OFFSET, yScreen + FIELD_HEIGHT, HIGHLIGHT_COLOR);
         }
 
         String display = editing ? buffer.toString() : String.valueOf(getter.getAsInt());
-        int availableWidth = WIDTH - 6; // 3px padding on each side
+        int availableWidth = WIDTH - TEXT_HORIZONTAL_MARGIN; // 3px padding on each side
 
         String truncatedDisplay;
         if (editing) {
@@ -79,19 +90,19 @@ public class NumberField implements ConfigControl {
             truncatedDisplay = textRenderer.trimToWidth(display, availableWidth);
         }
 
-        ctx.drawText(textRenderer, truncatedDisplay, sx + 3, yScreen + 4, 0xFFFFFF, false);
+        ctx.drawText(textRenderer, truncatedDisplay, sx + TEXT_X_OFFSET, yScreen + TEXT_Y_OFFSET, WHITE_COLOR, false);
 
         if (editing) {
-            long blink = System.currentTimeMillis() / 500;
+            long blink = System.currentTimeMillis() / BLINK_RATE_MS;
             if (blink % 2 == 0) {
                 int w = textRenderer.getWidth(Text.literal(truncatedDisplay));
-                ctx.fill(sx + 3 + w + 1, yScreen + 3, sx + 3 + w + 2, yScreen + 13, 0xFFFFFFFF);
+                ctx.fill(sx + TEXT_X_OFFSET + w + BORDER_OFFSET, yScreen + TEXT_X_OFFSET, sx + TEXT_X_OFFSET + w + BORDER_OFFSET + BORDER_OFFSET, yScreen + CURSOR_HEIGHT_OFFSET, HIGHLIGHT_COLOR);
             }
         }
 
         Text fullLabel = Text.empty().append(label).append(":");
         int lw = textRenderer.getWidth(fullLabel);
-        ctx.drawText(textRenderer, fullLabel, sx - lw - 5, yScreen + 4, 0xFFFFFF, false);
+        ctx.drawText(textRenderer, fullLabel, sx - lw - LABEL_SPACING, yScreen + TEXT_Y_OFFSET, WHITE_COLOR, false);
     }
 
     @Override
@@ -133,23 +144,11 @@ public class NumberField implements ConfigControl {
 
     @Override
     public boolean mouseScrolled(int mx, int my, double amount, int panelX) {
-        // Этот метод вызывается ТОЛЬКО если isMouseOver уже вернул true,
-        // но на всякий случай проверим ещё раз с учётом scrollY
-        // → но scrollY недоступен здесь, поэтому...
-        // Лучше: не использовать этот метод напрямую, а вызывать через ConfigPanel
-        // Но для простоты — сейчас он вызывается только когда поле под мышкой
-        // → значит, просто примени скролл
-
+        // Метод вызывается только когда поле под мышкой
         int step = amount > 0 ? 1 : -1;
         int newValue = getter.getAsInt() + step;
 
-        if (isColor) {
-            newValue = MathHelper.clamp(newValue, 0, 255);
-        } else if (isOffset) {
-            newValue = MathHelper.clamp(newValue, -HexSBMConfig.MAX_OFFSET, HexSBMConfig.MAX_OFFSET);
-        } else {
-            newValue = MathHelper.clamp(newValue, 0, HexSBMConfig.MAX_RADIUS);
-        }
+        newValue = clampValue(newValue);
 
         setter.accept(newValue);
         if (editing) {
@@ -163,21 +162,25 @@ public class NumberField implements ConfigControl {
         if (buffer.length() == 0) return;
         try {
             int v = Integer.parseInt(buffer.toString());
-            if (isColor) {
-                v = MathHelper.clamp(v, 0, 255);
-            } else if (isOffset) {
-                v = MathHelper.clamp(v, -com.hexsbm.config.HexSBMConfig.MAX_OFFSET, com.hexsbm.config.HexSBMConfig.MAX_OFFSET);
-            } else {
-                v = MathHelper.clamp(v, 0, com.hexsbm.config.HexSBMConfig.MAX_RADIUS);
-            }
+            v = clampValue(v);
             setter.accept(v);
         } catch (NumberFormatException ignored) {}
+    }
+
+    private int clampValue(int value) {
+        if (isColor) {
+            return MathHelper.clamp(value, 0, 255);
+        } else if (isOffset) {
+            return MathHelper.clamp(value, -HexSBMConfig.MAX_OFFSET, HexSBMConfig.MAX_OFFSET);
+        } else {
+            return MathHelper.clamp(value, 0, HexSBMConfig.MAX_RADIUS);
+        }
     }
 
     public boolean isMouseOver(int mx, int my, int panelX, int scrollY) {
         int yScreen = this.y - scrollY;
         int sx = panelX + x;
-        return mx >= sx && mx < sx + WIDTH && my >= yScreen && my < yScreen + 16;
+        return mx >= sx && mx < sx + WIDTH && my >= yScreen && my < yScreen + FIELD_HEIGHT;
     }
 
     public boolean isEditing() { return editing; }

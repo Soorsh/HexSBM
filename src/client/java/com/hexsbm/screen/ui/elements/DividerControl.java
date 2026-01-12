@@ -7,6 +7,10 @@ public class DividerControl implements ConfigControl {
     private final int y;
     private final int height;
 
+    private static final int DIVIDER_START_X = 5;
+    private static final int DIVIDER_END_X = 215;
+    private static final int DIVIDER_COLOR = 0xFF888888;
+
     public DividerControl(int y, int height) {
         this.y = y;
         this.height = height;
@@ -15,8 +19,7 @@ public class DividerControl implements ConfigControl {
     @Override
     public void render(DrawContext ctx, TextRenderer textRenderer, int mx, int my, int panelX, int scrollY) {
         int yScreen = y - scrollY;
-        // Draw a horizontal line across the panel
-        ctx.fill(panelX + 5, yScreen + height / 2, panelX + 215, yScreen + height / 2 + 1, 0xFF888888);
+        ctx.fill(panelX + DIVIDER_START_X, yScreen + height / 2, panelX + DIVIDER_END_X, yScreen + height / 2 + 1, DIVIDER_COLOR);
     }
 
     @Override

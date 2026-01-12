@@ -18,6 +18,7 @@ public class Button implements ConfigControl {
     private static final int HOVER_BACKGROUND_COLOR = 0xFF555555;
     private static final int PRESSED_BACKGROUND_COLOR = 0xFF111111;
     private static final int BORDER_COLOR = 0xFF666666;
+    private static final int TEXT_Y_OFFSET = 1;
 
     public Button(int x, int y, Text label, int color, Runnable action) {
         this.x = x;
@@ -49,7 +50,7 @@ public class Button implements ConfigControl {
 
         // Draw text centered
         int textX = sx + (BUTTON_WIDTH - textRenderer.getWidth(label)) / 2;
-        int textY = yScreen + (BUTTON_HEIGHT - textRenderer.fontHeight) / 2 + 1;
+        int textY = yScreen + (BUTTON_HEIGHT - textRenderer.fontHeight) / 2 + TEXT_Y_OFFSET;
         ctx.drawText(textRenderer, label, textX, textY, color, false);
     }
 

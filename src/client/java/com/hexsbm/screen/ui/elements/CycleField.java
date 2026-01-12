@@ -1,4 +1,3 @@
-// com/hexsbm/screen/ui/CycleField.java
 package com.hexsbm.screen.ui.elements;
 
 import net.minecraft.client.font.TextRenderer;
@@ -21,6 +20,8 @@ public class CycleField implements ConfigControl {
     private static final int BACKGROUND_COLOR = 0xFF333333; // Цвет фона
     private static final int HOVER_BACKGROUND_COLOR = 0xFF555555; // Цвет фона при наведении
     private static final int BORDER_COLOR = 0xFF666666;    // Цвет границы
+    private static final int TEXT_FIELD_SPACING = 5;
+    private static final int LABEL_COLOR = 0xFFFFFF;
 
     public CycleField(int x, int y, Text label, List<Text> options, IntSupplier getter, IntConsumer setter) {
         this.x = x;
@@ -41,9 +42,9 @@ public class CycleField implements ConfigControl {
 
         Text fullLabel = Text.empty().append(label).append(":");
         // Draw label
-        ctx.drawText(textRenderer, fullLabel, sx, yScreen + (FIELD_HEIGHT - textRenderer.fontHeight) / 2, 0xFFFFFF, false);
+        ctx.drawText(textRenderer, fullLabel, sx, yScreen + (FIELD_HEIGHT - textRenderer.fontHeight) / 2, LABEL_COLOR, false);
 
-        int fieldX = sx + textRenderer.getWidth(fullLabel) + 5; // Position the field after the label
+        int fieldX = sx + textRenderer.getWidth(fullLabel) + TEXT_FIELD_SPACING; // Position the field after the label
 
         boolean isHovered = mx >= fieldX && mx <= fieldX + FIELD_WIDTH && my >= yScreen && my <= yScreen + FIELD_HEIGHT;
 
@@ -67,7 +68,7 @@ public class CycleField implements ConfigControl {
         int sx = panelX + x;
         
         Text fullLabel = Text.empty().append(label).append(":");
-        int fieldX = sx + textRenderer.getWidth(fullLabel) + 5; // Position the field after the label
+        int fieldX = sx + textRenderer.getWidth(fullLabel) + TEXT_FIELD_SPACING; // Position the field after the label
 
         // Check if click is within the new visual box
         if (mx >= fieldX && mx <= fieldX + FIELD_WIDTH && my >= yScreen && my <= yScreen + FIELD_HEIGHT) {

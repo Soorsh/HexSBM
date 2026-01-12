@@ -10,6 +10,10 @@ public final class RadialRenderer {
 
     private RadialRenderer() {}
 
+    private static final float MAX_RGB_VALUE = 255f;
+    private static final double FULL_CIRCLE_RADIANS = 2.0 * Math.PI;
+    private static final double START_ANGLE_OFFSET_RADIANS = -Math.PI / 2.0;
+
     public static void fillSegment(DrawContext ctx, int cx, int cy, int rIn, int rOut, double a1, double a2, int cIn, int cOut, int segmentResolution) {
         if (rIn < 0) rIn = 0;
         if (rOut <= rIn) rOut = rIn + 1;
@@ -18,8 +22,8 @@ public final class RadialRenderer {
         Tessellator t = Tessellator.getInstance();
         BufferBuilder b = t.getBuffer();
 
-        float ir = ((cIn >> 16) & 0xFF) / 255f, ig = ((cIn >> 8) & 0xFF) / 255f, ib = (cIn & 0xFF) / 255f, ia = ((cIn >> 24) & 0xFF) / 255f;
-        float or = ((cOut >> 16) & 0xFF) / 255f, og = ((cOut >> 8) & 0xFF) / 255f, ob = (cOut & 0xFF) / 255f, oa = ((cOut >> 24) & 0xFF) / 255f;
+        float ir = ((cIn >> 16) & 0xFF) / MAX_RGB_VALUE, ig = ((cIn >> 8) & 0xFF) / MAX_RGB_VALUE, ib = (cIn & 0xFF) / MAX_RGB_VALUE, ia = ((cIn >> 24) & 0xFF) / MAX_RGB_VALUE;
+        float or = ((cOut >> 16) & 0xFF) / MAX_RGB_VALUE, og = ((cOut >> 8) & 0xFF) / MAX_RGB_VALUE, ob = (cOut & 0xFF) / MAX_RGB_VALUE, oa = ((cOut >> 24) & 0xFF) / MAX_RGB_VALUE;
 
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
         RenderSystem.enableBlend();
@@ -43,9 +47,9 @@ public final class RadialRenderer {
         if (distSq < rInSq || distSq > rOutSq) return false;
 
         double angle = Math.atan2(dy, dx);
-        if (angle < 0) angle += 2 * Math.PI;
-        double start = a1 < 0 ? a1 + 2 * Math.PI : a1;
-        double end = a2 < 0 ? a2 + 2 * Math.PI : a2;
+        if (angle < 0) angle += FULL_CIRCLE_RADIANS;
+        double start = a1 < 0 ? a1 + FULL_CIRCLE_RADIANS : a1;
+        double end = a2 < 0 ? a2 + FULL_CIRCLE_RADIANS : a2;
 
         if (start < end) {
             return angle >= start && angle <= end;
@@ -58,8 +62,8 @@ public final class RadialRenderer {
         public final double start, mid, end;
 
         public SectorAngles(int index, int totalSegments) {
-            double segmentAngle = 2.0 * Math.PI / totalSegments;
-            this.mid = -Math.PI / 2.0 + segmentAngle * index;
+            double segmentAngle = FULL_CIRCLE_RADIANS / totalSegments;
+            this.mid = START_ANGLE_OFFSET_RADIANS + segmentAngle * index;
             this.start = this.mid - segmentAngle / 2.0;
             this.end = this.mid + segmentAngle / 2.0;
         }

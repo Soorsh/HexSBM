@@ -12,7 +12,7 @@ import java.util.*;
 
 public final class SpellbookNbtManager {
 
-    private SpellbookNbtManager() {}
+    private SpellbookNbtManager() {} // Приватный конструктор для служебного класса.
 
     public static int getPage(ItemStack book) {
         NbtCompound nbt = book.getNbt();

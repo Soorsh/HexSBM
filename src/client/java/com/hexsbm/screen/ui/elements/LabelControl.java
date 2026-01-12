@@ -9,8 +9,11 @@ public class LabelControl implements ConfigControl {
     private final int y;
     private final int color;
 
+    private static final int DEFAULT_TEXT_COLOR = 0xFFFFFF;
+    private static final int TEXT_X_OFFSET = 10;
+
     public LabelControl(Text text, int y) {
-        this(text, y, 0xFFFFFF);
+        this(text, y, DEFAULT_TEXT_COLOR);
     }
 
     public LabelControl(Text text, int y, int color) {
@@ -20,7 +23,7 @@ public class LabelControl implements ConfigControl {
     }
 
     public LabelControl(String text, int y) {
-        this(Text.literal(text), y, 0xFFFFFF);
+        this(Text.literal(text), y, DEFAULT_TEXT_COLOR);
     }
 
     public LabelControl(String text, int y, int color) {
@@ -30,7 +33,7 @@ public class LabelControl implements ConfigControl {
     @Override
     public void render(DrawContext ctx, TextRenderer textRenderer, int mx, int my, int panelX, int scrollY) {
         int yScreen = y - scrollY;
-        ctx.drawText(textRenderer, text, panelX + 10, yScreen, color, false);
+        ctx.drawText(textRenderer, text, panelX + TEXT_X_OFFSET, yScreen, color, false);
     }
 
     @Override

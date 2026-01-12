@@ -4,6 +4,9 @@ import com.hexsbm.config.HexSBMConfig;
 
 public class ColorScheme {
 
+    private static final int ALPHA_MASK = 0xFF000000;
+    private static final float MAX_RGB_VALUE = 255f;
+
     private final int pigmentColor;
     private final HexSBMConfig config;
 
@@ -47,17 +50,8 @@ public class ColorScheme {
                 return lighten(pigmentColor, config.outerInactiveLighten);
             }
         } else {
-            float lightenAmount, darkenAmount;
-            if (isInner) {
-                lightenAmount = isOuterEdge ? config.innerActiveLighten : config.innerInactiveLighten;
-                darkenAmount = config.innerInactiveDarken;
-            } else {
-                lightenAmount = config.outerActiveLighten;
-                darkenAmount = config.outerInactiveDarken;
-            }
-
             if (cur) {
-                return lighten(pigmentColor, isInner && isOuterEdge ? config.innerActiveLighten : (isInner ? config.innerActiveLighten : config.outerActiveLighten));
+                return lighten(pigmentColor, isInner ? config.innerActiveLighten : config.outerActiveLighten);
             } else if (hover) {
                 return lighten(pigmentColor, isInner ? config.innerHoverLighten : config.outerHoverLighten);
             } else {
@@ -78,16 +72,16 @@ public class ColorScheme {
     }
 
     private int lighten(int color, float f) {
-        float r = Math.min(1, ((color >> 16) & 0xFF) / 255f + f);
-        float g = Math.min(1, ((color >> 8) & 0xFF) / 255f + f);
-        float b = Math.min(1, (color & 0xFF) / 255f + f);
-        return (color & 0xFF000000) | ((int)(r * 255) << 16) | ((int)(g * 255) << 8) | (int)(b * 255);
+        float r = Math.min(1, ((color >> 16) & 0xFF) / MAX_RGB_VALUE + f);
+        float g = Math.min(1, ((color >> 8) & 0xFF) / MAX_RGB_VALUE + f);
+        float b = Math.min(1, (color & 0xFF) / MAX_RGB_VALUE + f);
+        return (color & ALPHA_MASK) | ((int)(r * MAX_RGB_VALUE) << 16) | ((int)(g * MAX_RGB_VALUE) << 8) | (int)(b * MAX_RGB_VALUE);
     }
 
     private int darken(int color, float f) {
-        float r = Math.max(0, ((color >> 16) & 0xFF) / 255f - f);
-        float g = Math.max(0, ((color >> 8) & 0xFF) / 255f - f);
-        float b = Math.max(0, (color & 0xFF) / 255f - f);
-        return (color & 0xFF000000) | ((int)(r * 255) << 16) | ((int)(g * 255) << 8) | (int)(b * 255);
+        float r = Math.max(0, ((color >> 16) & 0xFF) / MAX_RGB_VALUE - f);
+        float g = Math.max(0, ((color >> 8) & 0xFF) / MAX_RGB_VALUE - f);
+        float b = Math.max(0, (color & 0xFF) / MAX_RGB_VALUE - f);
+        return (color & ALPHA_MASK) | ((int)(r * MAX_RGB_VALUE) << 16) | ((int)(g * MAX_RGB_VALUE) << 8) | (int)(b * MAX_RGB_VALUE);
     }
 }

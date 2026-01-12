@@ -29,7 +29,6 @@ public class KeyBindManager {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!SPELLBOOK_KEYBIND.wasPressed()) return;
             if (client.player == null) return;
-            // ← ДОБАВЬ ЭТУ ПРОВЕРКУ:
             if (client.currentScreen instanceof SpellBookScreen) return;
 
             ItemStack main = client.player.getMainHandStack();
