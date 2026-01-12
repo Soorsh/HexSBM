@@ -11,8 +11,8 @@ import java.util.function.IntConsumer;
 
 public class CycleField implements ConfigControl {
     private final int x, y;
-    private final String label;
-    private final List<String> options;
+    private final Text label;
+    private final List<Text> options;
     private final IntSupplier getter;
     private final IntConsumer setter;
 
@@ -22,7 +22,7 @@ public class CycleField implements ConfigControl {
     private static final int HOVER_BACKGROUND_COLOR = 0xFF555555; // Цвет фона при наведении
     private static final int BORDER_COLOR = 0xFF666666;    // Цвет границы
 
-    public CycleField(int x, int y, String label, List<String> options, IntSupplier getter, IntConsumer setter) {
+    public CycleField(int x, int y, Text label, List<Text> options, IntSupplier getter, IntConsumer setter) {
         this.x = x;
         this.y = y;
         this.label = label;
@@ -36,13 +36,14 @@ public class CycleField implements ConfigControl {
         int yScreen = y - scrollY;
         int value = getter.getAsInt();
         if (value < 0 || value >= options.size()) value = 0;
-        String currentOptionText = options.get(value);
+        Text currentOptionText = options.get(value);
         int sx = panelX + x;
 
+        Text fullLabel = Text.empty().append(label).append(":");
         // Draw label
-        ctx.drawText(textRenderer, label + ":", sx, yScreen + (FIELD_HEIGHT - textRenderer.fontHeight) / 2, 0xFFFFFF, false);
+        ctx.drawText(textRenderer, fullLabel, sx, yScreen + (FIELD_HEIGHT - textRenderer.fontHeight) / 2, 0xFFFFFF, false);
 
-        int fieldX = sx + textRenderer.getWidth(Text.literal(label + ": ")) + 5; // Position the field after the label
+        int fieldX = sx + textRenderer.getWidth(fullLabel) + 5; // Position the field after the label
 
         boolean isHovered = mx >= fieldX && mx <= fieldX + FIELD_WIDTH && my >= yScreen && my <= yScreen + FIELD_HEIGHT;
 
@@ -53,7 +54,7 @@ public class CycleField implements ConfigControl {
         ctx.drawBorder(fieldX, yScreen, FIELD_WIDTH, FIELD_HEIGHT, BORDER_COLOR);
 
         // Display current option text centered within the box
-        int textX = fieldX + (FIELD_WIDTH - textRenderer.getWidth(Text.literal(currentOptionText))) / 2;
+        int textX = fieldX + (FIELD_WIDTH - textRenderer.getWidth(currentOptionText)) / 2;
         int textY = yScreen + (FIELD_HEIGHT - textRenderer.fontHeight) / 2;
         ctx.drawText(textRenderer, currentOptionText, textX, textY, 0xFFFFFF, false);
     }
@@ -63,10 +64,10 @@ public class CycleField implements ConfigControl {
         int yScreen = y - scrollY;
         int value = getter.getAsInt();
         if (value < 0 || value >= options.size()) value = 0;
-        String currentText = options.get(value);
         int sx = panelX + x;
         
-        int fieldX = sx + textRenderer.getWidth(Text.literal(label + ": ")) + 5; // Position the field after the label
+        Text fullLabel = Text.empty().append(label).append(":");
+        int fieldX = sx + textRenderer.getWidth(fullLabel) + 5; // Position the field after the label
 
         // Check if click is within the new visual box
         if (mx >= fieldX && mx <= fieldX + FIELD_WIDTH && my >= yScreen && my <= yScreen + FIELD_HEIGHT) {

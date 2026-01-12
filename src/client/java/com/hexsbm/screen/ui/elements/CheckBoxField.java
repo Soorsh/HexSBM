@@ -9,7 +9,7 @@ import java.util.function.Consumer;
 
 public class CheckBoxField implements ConfigControl {
     private final int x, y;
-    private final String label;
+    private final Text label;
     private final BooleanSupplier getter;
     private final Consumer<Boolean> setter;
 
@@ -21,7 +21,7 @@ public class CheckBoxField implements ConfigControl {
     private static final int BORDER_COLOR = 0xFF666666;    // Цвет рамки
     private static final int CHECKMARK_COLOR = 0xFFFFFFFF; // Белый цвет для галочки
 
-    public CheckBoxField(int x, int y, String label, BooleanSupplier getter, Consumer<Boolean> setter) {
+    public CheckBoxField(int x, int y, Text label, BooleanSupplier getter, Consumer<Boolean> setter) {
         this.x = x;
         this.y = y;
         this.label = label;
@@ -35,10 +35,11 @@ public class CheckBoxField implements ConfigControl {
         boolean value = getter.getAsBoolean();
         int sx = panelX + x;
 
+        Text fullLabel = Text.empty().append(label).append(":");
         // Draw label
-        ctx.drawText(textRenderer, label + ":", sx, yScreen + BOX_Y_OFFSET + (BOX_SIZE - textRenderer.fontHeight) / 2, 0xFFFFFF, false);
+        ctx.drawText(textRenderer, fullLabel, sx, yScreen + BOX_Y_OFFSET + (BOX_SIZE - textRenderer.fontHeight) / 2, 0xFFFFFF, false);
 
-        int checkboxX = sx + textRenderer.getWidth(Text.literal(label + ": ")) + 5; // Position the checkbox after the label
+        int checkboxX = sx + textRenderer.getWidth(fullLabel) + 5; // Position the checkbox after the label
         int checkboxY = yScreen + BOX_Y_OFFSET;
 
         boolean isHovered = mx >= checkboxX && mx <= checkboxX + BOX_SIZE && my >= checkboxY && my <= checkboxY + BOX_SIZE;
@@ -60,7 +61,8 @@ public class CheckBoxField implements ConfigControl {
         int yScreen = y - scrollY;
         int sx = panelX + x;
 
-        int checkboxX = sx + textRenderer.getWidth(Text.literal(label + ": ")) + 5; // Position the checkbox after the label
+        Text fullLabel = Text.empty().append(label).append(":");
+        int checkboxX = sx + textRenderer.getWidth(fullLabel) + 5; // Position the checkbox after the label
         int checkboxY = yScreen + BOX_Y_OFFSET;
 
         if (mx >= checkboxX && mx <= checkboxX + BOX_SIZE && my >= checkboxY && my <= checkboxY + BOX_SIZE) {

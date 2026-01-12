@@ -160,7 +160,7 @@ public class SpellBookScreen extends Screen {
             if (hover && liveConfig.enableTooltips) {
                 List<Text> tip = new ArrayList<>();
                 String name = SpellbookNbtManager.getCustomPageName(book, page);
-                tip.add(Text.literal(name != null && !name.isEmpty() ? name : "Page " + page));
+                tip.add(name != null && !name.isEmpty() ? Text.literal(name) : Text.translatable("hexsbm.ui.page", page));
                 tip.addAll(SpellbookNbtManager.getPatternTooltip(book, page, client.player, liveConfig));
                 ctx.drawTooltip(textRenderer, tip, mx, my);
             }

@@ -6,7 +6,7 @@ import net.minecraft.text.Text;
 
 public class Button implements ConfigControl {
     private final int x, y;
-    private final String label;
+    private final Text label;
     private final int color;
     private final Runnable action;
 
@@ -19,7 +19,7 @@ public class Button implements ConfigControl {
     private static final int PRESSED_BACKGROUND_COLOR = 0xFF111111;
     private static final int BORDER_COLOR = 0xFF666666;
 
-    public Button(int x, int y, String label, int color, Runnable action) {
+    public Button(int x, int y, Text label, int color, Runnable action) {
         this.x = x;
         this.y = y;
         this.label = label;
@@ -48,7 +48,7 @@ public class Button implements ConfigControl {
         ctx.drawBorder(sx, yScreen, BUTTON_WIDTH, BUTTON_HEIGHT, BORDER_COLOR);
 
         // Draw text centered
-        int textX = sx + (BUTTON_WIDTH - textRenderer.getWidth(Text.literal(label))) / 2;
+        int textX = sx + (BUTTON_WIDTH - textRenderer.getWidth(label)) / 2;
         int textY = yScreen + (BUTTON_HEIGHT - textRenderer.fontHeight) / 2 + 1;
         ctx.drawText(textRenderer, label, textX, textY, color, false);
     }

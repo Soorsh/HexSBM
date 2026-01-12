@@ -10,7 +10,7 @@ import com.hexsbm.config.HexSBMConfig;
 
 public class NumberField implements ConfigControl {
     public final int x, y;
-    public final String label;
+    public final Text label;
     public final boolean isOffset;
     public final boolean isColor;
 
@@ -25,7 +25,7 @@ public class NumberField implements ConfigControl {
     private static final int BACKGROUND_COLOR = 0xFF333333;
     private static final int HOVER_BACKGROUND_COLOR = 0xFF555555;
 
-    public NumberField(int x, int y, String label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset, boolean isColor) {
+    public NumberField(int x, int y, Text label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset, boolean isColor) {
         this.x = x;
         this.y = y;
         this.label = label;
@@ -35,8 +35,16 @@ public class NumberField implements ConfigControl {
         this.isColor = isColor;
     }
 
-    public NumberField(int x, int y, String label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset) {
+    public NumberField(int x, int y, Text label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset) {
         this(x, y, label, getter, setter, isOffset, false);
+    }
+
+    public NumberField(int x, int y, String label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset, boolean isColor) {
+        this(x, y, Text.literal(label), getter, setter, isOffset, isColor);
+    }
+
+    public NumberField(int x, int y, String label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset) {
+        this(x, y, Text.literal(label), getter, setter, isOffset, false);
     }
 
     @Override
@@ -81,8 +89,9 @@ public class NumberField implements ConfigControl {
             }
         }
 
-        int lw = textRenderer.getWidth(Text.literal(label + ":"));
-        ctx.drawText(textRenderer, label + ":", sx - lw - 5, yScreen + 4, 0xFFFFFF, false);
+        Text fullLabel = Text.empty().append(label).append(":");
+        int lw = textRenderer.getWidth(fullLabel);
+        ctx.drawText(textRenderer, fullLabel, sx - lw - 5, yScreen + 4, 0xFFFFFF, false);
     }
 
     @Override
