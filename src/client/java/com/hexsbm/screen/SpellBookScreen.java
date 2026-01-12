@@ -204,7 +204,6 @@ public class SpellBookScreen extends Screen {
             } else {
                 // Клик СЛЕВА от панели — значит, по фону → закрываем панель
                 configPanel.close(liveConfig);
-                ConfigManager.saveConfig(liveConfig);
                 configPanelFullyOpen = false;
                 return true;
             }
@@ -291,7 +290,6 @@ public class SpellBookScreen extends Screen {
     @Override
     public void close() {
         configPanel.close(liveConfig);
-        ConfigManager.saveConfig(liveConfig);
         configPanelFullyOpen = false;
         configInteractionStarted = false;
         if (client != null) client.setScreen(null);
@@ -302,7 +300,6 @@ public class SpellBookScreen extends Screen {
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
             if (configPanelFullyOpen) {
                 configPanel.close(liveConfig);
-                ConfigManager.saveConfig(liveConfig);
                 configPanelFullyOpen = false;
             } else {
                 close();

@@ -32,22 +32,22 @@ public class ConfigPanel {
         // === Поведение ===
         controls.add(new LabelControl("Поведение", y, 0xAAAAAA)); y += 20;
         controls.add(new CheckBoxField(10, y, "Тултипы", config::isEnableTooltips, config::setEnableTooltips)); y += 20;
-        controls.add(new CheckBoxField(10, y, "Закрывать по клику", config::isCloseOnBackgroundClick, config::setCloseOnBackgroundClick)); y += 20;
-        controls.add(new CycleField(10, y, "Открытие меню", List.of("По зажатию", "По клику"), config::getMenuOpenMode, config::setMenuOpenMode)); y += 30;
+        controls.add(new CheckBoxField(10, y, "Закрыть по миссклику", config::isCloseOnBackgroundClick, config::setCloseOnBackgroundClick)); y += 20;
+        controls.add(new CycleField(10, y, "Открыть меню", List.of("Удерживать", "Нажать"), config::getMenuOpenMode, config::setMenuOpenMode)); y += 30;
         controls.add(new DividerControl(y, 10)); y += 10; // Divider
 
         // === Внешнее кольцо ===
-        controls.add(new LabelControl("Внешнее кольцо", y, 0xAAAAAA)); y += 20;
-        controls.add(new NumberField(100, y, "Внешний радиус", config::getOuterRingOuterRadius, config::setOuterRingOuterRadius, false)); y += 20;
-        controls.add(new NumberField(100, y, "Начало", config::getOuterRingInnerRadius, config::setOuterRingInnerRadius, false)); y += 20;
-        controls.add(new NumberField(100, y, "Смещение", config::getOuterIconRadiusOffset, v -> config.setOuterIconRadiusOffset(v), true)); y += 30;
+        controls.add(new LabelControl("Кольцо заклинаний", y, 0xAAAAAA)); y += 20;
+        controls.add(new NumberField(100, y, "Внеш. радиус", config::getOuterRingOuterRadius, config::setOuterRingOuterRadius, false)); y += 20;
+        controls.add(new NumberField(100, y, "Внутр. радиус", config::getOuterRingInnerRadius, config::setOuterRingInnerRadius, false)); y += 20;
+        controls.add(new NumberField(100, y, "Смещение иконки", config::getOuterIconRadiusOffset, v -> config.setOuterIconRadiusOffset(v), true)); y += 30;
         controls.add(new DividerControl(y, 10)); y += 10; // Divider
 
         // === Внутреннее кольцо ===
-        controls.add(new LabelControl("Внутреннее кольцо", y, 0xAAAAAA)); y += 20;
+        controls.add(new LabelControl("Групповое кольцо", y, 0xAAAAAA)); y += 20;
         controls.add(new NumberField(100, y, "Внутр. радиус", config::getInnerRingInnerRadius, config::setInnerRingInnerRadius, false)); y += 20;
-        controls.add(new NumberField(100, y, "Конец", config::getInnerRingOuterRadius, config::setInnerRingOuterRadius, false)); y += 20;
-        controls.add(new NumberField(100, y, "Смещение", config::getInnerIconRadiusOffset, v -> config.setInnerIconRadiusOffset(v), true)); y += 30;
+        controls.add(new NumberField(100, y, "Внеш. радиус", config::getInnerRingOuterRadius, config::setInnerRingOuterRadius, false)); y += 20;
+        controls.add(new NumberField(100, y, "Смещение иконки", config::getInnerIconRadiusOffset, v -> config.setInnerIconRadiusOffset(v), true)); y += 30;
         controls.add(new DividerControl(y, 10)); y += 10; // Divider
 
         // === Цвет ===
@@ -83,8 +83,8 @@ public class ConfigPanel {
         
         // === Сброс ===
         controls.add(new LabelControl("Сброс", y, 0xAAAAAA)); y += 20;
-        controls.add(new Button(10, y, "Сохранить", 0xFFFFFF, () -> {})); y += 20;
-        controls.add(new Button(10, y, "Сбросить", 0xFFFFFF, this::reloadFromDisk)); y += 20;
+        controls.add(new Button(10, y, "Сохранить", 0xFFFFFF, this::saveConfig)); y += 20;
+        controls.add(new Button(10, y, "Сбросить", 0xFFFFFF, this::resetChanges)); y += 20;
         controls.add(new Button(10, y, "СБРОСИТЬ ВСЁ", 0xFFFFFF, this::resetToDefaults)); y += 20;
     }
 
@@ -166,11 +166,15 @@ public class ConfigPanel {
         controls.forEach(ConfigControl::finishEditing);
     }
 
+    private void saveConfig() {
+        ConfigManager.saveConfig(this.config);
+    }
+
     private void resetToDefaults() {
         this.config.copyFrom(new HexSBMConfig());
     }
 
-    private void reloadFromDisk() {
+    private void resetChanges() {
         this.config.copyFrom(ConfigManager.getSavedConfig());
     }
 }
