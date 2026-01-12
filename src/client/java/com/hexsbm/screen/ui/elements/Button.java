@@ -49,7 +49,7 @@ public class Button implements ConfigControl {
 
         // Draw text centered
         int textX = sx + (BUTTON_WIDTH - textRenderer.getWidth(Text.literal(label))) / 2;
-        int textY = yScreen + (BUTTON_HEIGHT - textRenderer.fontHeight) / 2;
+        int textY = yScreen + (BUTTON_HEIGHT - textRenderer.fontHeight) / 2 + 1;
         ctx.drawText(textRenderer, label, textX, textY, color, false);
     }
 
