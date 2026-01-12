@@ -1,7 +1,9 @@
 {
   "key.hexsbm.spellbook_menu": "打开法术书",
   "category.hexsbm.binds": "HexSBM",
-  
+
+  "_note_to_ChuijkYahus": "ChuijkYahus, I don’t know how to contact you or how localization even works — so I’m just leaving this here and hoping for a miracle. Also, the gradient settings are still unstable, and I might completely redo this UI from scratch. So please don’t spend time translating these keys yet — they could all change soon.",
+
   "hexsbm.ui.behavior": "Behavior",
   "hexsbm.ui.spell_ring": "Spell Ring",
   "hexsbm.ui.group_ring": "Group Ring",
