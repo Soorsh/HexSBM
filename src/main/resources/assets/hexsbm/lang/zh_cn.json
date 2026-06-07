@@ -29,6 +29,7 @@
   "hexsbm.ui.hold": "按住",
   "hexsbm.ui.press": "按下",
   "hexsbm.ui.mode": "模式",
+  "hexsbm.ui.empty_sector_color": "空槽位颜色",
   "hexsbm.ui.by_spell": "按法术",
   "hexsbm.ui.always": "所有",
   "hexsbm.ui.never": "永不",
